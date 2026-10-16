@@ -305,3 +305,141 @@ test("scoreOfflineSession zeroes integrity and flags proctoring failure when no 
   assert.ok(result.gaps.some(g => g.includes("No camera or microphone")));
 });
 
+test("createStore creates, lists, expires, and marks invites used", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-interview-invite-test-"));
+  const store = createStore(tmpDir, { companyName: "Apex Global", targetRole: "Senior Engineer" });
+
+  const invite = await store.createInvite({
+    candidateName: "Priya Patel",
+    email: "priya@example.com",
+    targetRole: "Backend Engineer",
+    durationHours: 24,
+  });
+
+  assert.ok(invite.id.startsWith("inv_"));
+  assert.ok(invite.token.startsWith("inv_"));
+  assert.equal(invite.candidateName, "Priya Patel");
+  assert.equal(invite.targetRole, "Backend Engineer");
+  assert.equal(invite.status, "active");
+
+  const fetched = store.getInviteByToken(invite.token);
+  assert.equal(fetched.candidateName, "Priya Patel");
+
+  const list = store.listInvites();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].id, invite.id);
+
+  // Mark as used
+  await store.markInviteUsed(invite.token, "int_sample123");
+  const used = store.getInviteByToken(invite.token);
+  assert.equal(used.status, "completed");
+  assert.equal(used.sessionId, "int_sample123");
+  assert.ok(used.usedAt);
+});
+
+test("invite link cannot be reused after completion", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-interview-app-invite-test-"));
+  const config = {
+    interviewPassword: "candidatepassword",
+    adminPassword: "adminpassword123",
+    dataDir: tmpDir,
+    maxStrikes: 3,
+    perplexityKey: "",
+    perplexityModel: "",
+    perplexityFallbacks: [],
+    seedSettings: {
+      companyName: "Test Corp",
+      targetRole: "Full Stack Engineer",
+      questionCount: 4,
+      language: "English",
+      focusNotes: "Testing notes",
+    },
+  };
+  const store = createStore(tmpDir, config.seedSettings);
+  const app = createApp({ config, store });
+
+  // 1. Admin logs in
+  const adminLogin = await makeRequest(app, "POST", "/api/admin/login", { password: "adminpassword123" });
+  assert.equal(adminLogin.status, 200);
+  const adminToken = adminLogin.data.token;
+
+  // 2. Admin creates invite for Vikram
+  const inviteRes = await makeRequest(app, "POST", "/api/admin/invites", {
+    candidateName: "Vikram Malhotra",
+    targetRole: "DevOps Engineer",
+    durationHours: 48,
+  }, { Authorization: `Bearer ${adminToken}` });
+  assert.equal(inviteRes.status, 200);
+  const inviteToken = inviteRes.data.invite.token;
+
+  // 3. Verify invite
+  const verifyRes = await makeRequest(app, "GET", `/api/invite/verify?token=${inviteToken}`);
+  assert.equal(verifyRes.status, 200);
+  assert.equal(verifyRes.data.ok, true);
+  assert.equal(verifyRes.data.candidateName, "Vikram Malhotra");
+  assert.equal(verifyRes.data.targetRole, "DevOps Engineer");
+
+  // 4. Candidate logs in via inviteToken
+  const candLogin = await makeRequest(app, "POST", "/api/invite/login", { token: inviteToken });
+  assert.equal(candLogin.status, 200);
+  const candToken = candLogin.data.token;
+  assert.ok(candToken.startsWith("iv_"));
+
+  // 5. Candidate finishes interview
+  const finishRes = await makeRequest(app, "POST", "/api/finish", {}, { Authorization: `Bearer ${candToken}` });
+  // Interview wasn't started so it returns 409
+  assert.equal(finishRes.status, 409);
+
+  // Directly mark invite completed
+  await store.markInviteUsed(inviteToken, "int_test_vikram");
+
+  // 6. Verify subsequent attempt to verify or login with the invite fails!
+  const verifyAgain = await makeRequest(app, "GET", `/api/invite/verify?token=${inviteToken}`);
+  assert.equal(verifyAgain.status, 410);
+  assert.equal(verifyAgain.data.status, "completed");
+
+  const loginAgain = await makeRequest(app, "POST", "/api/invite/login", { token: inviteToken });
+  assert.equal(loginAgain.status, 410);
+});
+
+async function makeRequest(app, method, url, body = null, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = {
+      method,
+      url,
+      headers: {
+        "content-type": "application/json",
+        ...headers,
+      },
+      body: body || {},
+      ip: "127.0.0.1",
+      get(name) {
+        const target = name.toLowerCase();
+        for (const [k, v] of Object.entries(this.headers)) {
+          if (k.toLowerCase() === target) return v;
+        }
+        return "";
+      },
+      header(name) { return this.headers[name.toLowerCase()]; },
+    };
+
+    let statusCode = 200;
+    const resHeaders = {};
+    const res = {
+      status(code) { statusCode = code; return this; },
+      set(k, v) { resHeaders[k] = v; return this; },
+      setHeader(k, v) { resHeaders[k] = v; return this; },
+      writeHead(code, h) { statusCode = code; Object.assign(resHeaders, h); return this; },
+      json(data) { resolve({ status: statusCode, data, headers: resHeaders }); },
+      send(data) { resolve({ status: statusCode, data, headers: resHeaders }); },
+      end(data) { resolve({ status: statusCode, data, headers: resHeaders }); },
+    };
+
+    app.handle(req, res, (err) => {
+      if (err) reject(err);
+      else resolve({ status: statusCode, data: null, headers: resHeaders });
+    });
+  });
+}
+
+

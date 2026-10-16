@@ -131,6 +131,7 @@
         if (activeNav) activeNav.classList.add('active');
 
         if (viewId === 'status-view') loadSystemStatus();
+        if (viewId === 'invites-view') loadInvites();
         if (viewId === 'interviews-view') loadInterviews();
         if (viewId === 'settings-view') loadSettings();
     }
@@ -617,7 +618,176 @@
     }
 
     async function refreshAllData() {
-        await Promise.all([loadSystemStatus(), loadInterviews(), loadSettings()]);
+        await Promise.all([loadSystemStatus(), loadInvites(), loadInterviews(), loadSettings()]);
+    }
+
+    // --- Candidate Invites Management ---
+    let allInvites = [];
+
+    async function loadInvites() {
+        try {
+            const data = await api('/invites');
+            allInvites = data.invites || [];
+            const countEl = document.getElementById('invites-count');
+            if (countEl) countEl.textContent = allInvites.length;
+            renderInvitesTable(allInvites);
+        } catch (err) {
+            console.error("Failed to load invites:", err);
+            toast("Failed to load candidate invites: " + err.message, "error");
+        }
+    }
+
+    function renderInvitesTable(invites) {
+        const tbody = document.getElementById('invites-table-body');
+        if (!tbody) return;
+
+        if (!invites || invites.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding: 2.5rem;">No candidate invitation links generated yet. Create one above!</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = invites.map(inv => {
+            const origin = window.location.origin;
+            const fullUrl = `${origin}/?invite=${encodeURIComponent(inv.token)}`;
+
+            let statusBadge = '';
+            let timeDisplay = '';
+            const expiresDate = new Date(inv.expiresAt);
+            const now = Date.now();
+            const diffHours = Math.round((expiresDate.getTime() - now) / (1000 * 60 * 60));
+
+            if (inv.status === 'completed') {
+                statusBadge = `<span class="score-badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">Completed</span>`;
+                timeDisplay = `<span style="font-size: 0.8rem; color: #94a3b8;">Used ${new Date(inv.usedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>`;
+            } else if (inv.status === 'expired' || expiresDate.getTime() < now) {
+                statusBadge = `<span class="score-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">Expired</span>`;
+                timeDisplay = `<span style="font-size: 0.8rem; color: #ef4444;">Expired on ${expiresDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>`;
+            } else {
+                statusBadge = `<span class="score-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">Active</span>`;
+                timeDisplay = `<span style="font-size: 0.8rem; color: #38bdf8;">Expires in ~${Math.max(1, diffHours)}h</span>`;
+            }
+
+            return `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600; color: #fff;">${escapeHtml(inv.candidateName)}</div>
+                        ${inv.email ? `<div style="font-size: 0.78rem; color: #94a3b8;">${escapeHtml(inv.email)}</div>` : ''}
+                    </td>
+                    <td>
+                        <span style="font-size: 0.85rem; color: #cbd5e1;">${escapeHtml(inv.targetRole)}</span>
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td>${timeDisplay}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.4rem;">
+                            ${inv.status === 'active' ? `
+                                <button type="button" class="btn-secondary btn-sm btn-copy-row" data-url="${fullUrl}" title="Copy Link">
+                                    📋
+                                </button>
+                            ` : ''}
+                            <button type="button" class="btn-secondary btn-sm text-danger btn-delete-invite" data-id="${inv.id}" title="Delete Invite">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Bind copy buttons
+        tbody.querySelectorAll('.btn-copy-row').forEach(btn => {
+            btn.addEventListener('click', () => {
+                copyToClipboard(btn.dataset.url, btn);
+            });
+        });
+
+        // Bind delete buttons
+        tbody.querySelectorAll('.btn-delete-invite').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (confirm("Delete this candidate invitation?")) {
+                    await deleteInvite(btn.dataset.id);
+                }
+            });
+        });
+    }
+
+    async function handleCreateInvite(e) {
+        e.preventDefault();
+        const nameInput = document.getElementById('inv-candidate-name');
+        const roleInput = document.getElementById('inv-target-role');
+        const emailInput = document.getElementById('inv-email');
+        const durationSelect = document.getElementById('inv-duration');
+        const submitBtn = document.getElementById('btn-submit-invite');
+
+        const candidateName = nameInput.value.trim();
+        const targetRole = roleInput.value.trim();
+        const email = emailInput.value.trim();
+        const durationHours = parseInt(durationSelect.value, 10) || 24;
+
+        if (!candidateName) {
+            toast("Please enter the candidate's full name.", "error");
+            return;
+        }
+
+        try {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>Creating link...</span>`;
+
+            const res = await api('/invites', {
+                method: 'POST',
+                body: { candidateName, targetRole, email, durationHours }
+            });
+
+            toast(`Invitation link generated for ${res.invite.candidateName}!`, "success");
+            nameInput.value = '';
+            emailInput.value = '';
+
+            const origin = window.location.origin;
+            const fullUrl = `${origin}/?invite=${encodeURIComponent(res.invite.token)}`;
+
+            const resultBox = document.getElementById('new-invite-box');
+            const urlInput = document.getElementById('new-invite-url');
+            const waBtn = document.getElementById('btn-whatsapp-new-invite');
+            const expiryBadge = document.getElementById('new-invite-expiry-badge');
+
+            if (resultBox && urlInput) {
+                urlInput.value = fullUrl;
+                expiryBadge.textContent = `${durationHours}h Validity`;
+                const message = encodeURIComponent(`Hello ${res.invite.candidateName},\n\nYou have been invited to complete your AI technical interview for ${res.invite.targetRole}.\n\nAccess your interview here: ${fullUrl}\n\nNote: This link is valid for ${durationHours} hours and can only be used once.`);
+                waBtn.href = `https://api.whatsapp.com/send?text=${message}`;
+                resultBox.classList.remove('hidden');
+            }
+
+            await loadInvites();
+        } catch (err) {
+            toast("Failed to generate invite: " + err.message, "error");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<span>Generate Secure Invite Link</span> <span class="btn-arrow">→</span>`;
+        }
+    }
+
+    async function deleteInvite(id) {
+        try {
+            await api(`/invites/${id}`, { method: 'DELETE' });
+            toast("Invitation removed.", "info");
+            await loadInvites();
+        } catch (err) {
+            toast("Failed to delete invite: " + err.message, "error");
+        }
+    }
+
+    function copyToClipboard(text, btnElement) {
+        navigator.clipboard.writeText(text).then(() => {
+            toast("Link copied to clipboard!", "success");
+            if (btnElement) {
+                const oldText = btnElement.innerHTML;
+                btnElement.innerHTML = "✓ Copied!";
+                setTimeout(() => btnElement.innerHTML = oldText, 2000);
+            }
+        }).catch(() => {
+            prompt("Copy this interview link:", text);
+        });
     }
 
     // --- Helper Utilities ---
@@ -669,7 +839,15 @@
 
         // Refresh buttons
         document.getElementById('btn-refresh-status')?.addEventListener('click', loadSystemStatus);
+        document.getElementById('btn-refresh-invites')?.addEventListener('click', loadInvites);
         document.getElementById('btn-refresh-interviews')?.addEventListener('click', loadInterviews);
+
+        // Invite form & copy
+        document.getElementById('form-create-invite')?.addEventListener('submit', handleCreateInvite);
+        document.getElementById('btn-copy-new-invite')?.addEventListener('click', () => {
+            const url = document.getElementById('new-invite-url')?.value;
+            if (url) copyToClipboard(url, document.getElementById('btn-copy-new-invite'));
+        });
 
         // Filter pills & Search
         document.querySelectorAll('.filter-pills .filter-pill').forEach(pill => {

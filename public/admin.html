@@ -58,6 +58,10 @@
                     <span class="nav-icon">📊</span>
                     <span>System Status</span>
                 </button>
+                <button type="button" class="nav-item" data-view="invites-view">
+                    <span class="nav-icon">🔗</span>
+                    <span>Candidate Invites</span>
+                </button>
                 <button type="button" class="nav-item" data-view="interviews-view">
                     <span class="nav-icon">👥</span>
                     <span>Candidate Reviews</span>
@@ -215,6 +219,113 @@
                             <!-- Populated dynamically via admin.js -->
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- 2b. Candidate Invites View -->
+            <section id="invites-view" class="admin-view hidden">
+                <header class="content-header">
+                    <div>
+                        <h1 class="page-title">Candidate Invitation Links</h1>
+                        <p class="page-desc">Generate single-use, auto-expiring interview links for remote candidates across different cities.</p>
+                    </div>
+                    <button type="button" class="btn-secondary btn-sm" id="btn-refresh-invites">🔄 Refresh Invites</button>
+                </header>
+
+                <div class="invites-container-grid" style="display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.5rem; align-items: start;">
+                    <!-- Invite Generator Card -->
+                    <div class="card glass-card invite-create-card">
+                        <div class="card-header">
+                            <h3 style="font-size: 1.2rem; margin-bottom: 0.4rem;">✨ Create One-Time Invite Link</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary);">Generates a unique link that expires after the interview is completed or when time runs out.</p>
+                        </div>
+                        <form id="form-create-invite" class="modern-form" style="margin-top: 1rem;">
+                            <div class="input-group">
+                                <label for="inv-candidate-name">Candidate Full Name *</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">👤</span>
+                                    <input type="text" id="inv-candidate-name" required placeholder="e.g. Rahul Sharma" autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="inv-target-role">Target Role Title</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">💼</span>
+                                    <input type="text" id="inv-target-role" placeholder="e.g. Senior Full Stack Engineer">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="inv-email">Candidate Email (Optional)</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">✉️</span>
+                                    <input type="email" id="inv-email" placeholder="e.g. rahul@example.com">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="inv-duration">Link Validity (Timeline)</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">⏳</span>
+                                    <select id="inv-duration" style="width: 100%; background: #0c1222; color: #fff; border: 1px solid var(--border-subtle); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-family: inherit;">
+                                        <option value="12">12 Hours</option>
+                                        <option value="24" selected>24 Hours (1 Day - Recommended)</option>
+                                        <option value="48">48 Hours (2 Days)</option>
+                                        <option value="72">72 Hours (3 Days)</option>
+                                        <option value="168">7 Days (1 Week)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary btn-glow" id="btn-submit-invite" style="margin-top: 0.5rem;">
+                                <span>Generate Secure Invite Link</span>
+                                <span class="btn-arrow">→</span>
+                            </button>
+                        </form>
+
+                        <div id="new-invite-box" class="glass-card hidden" style="margin-top: 1.5rem; padding: 1.25rem; border: 1px solid rgba(56, 189, 248, 0.35); background: rgba(14, 165, 233, 0.08); border-radius: 12px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                                <span style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;">✅ Invite Link Ready</span>
+                                <span id="new-invite-expiry-badge" style="font-size: 0.75rem; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 8px; border-radius: 99px;">24h Validity</span>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                <input type="text" id="new-invite-url" readonly style="flex: 1; background: #070b14; color: #38bdf8; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8rem; font-family: var(--font-mono);">
+                                <button type="button" class="btn-primary btn-sm" id="btn-copy-new-invite" style="white-space: nowrap;">📋 Copy</button>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <a id="btn-whatsapp-new-invite" target="_blank" class="btn-secondary btn-sm" style="flex: 1; text-align: center; text-decoration: none; color: #22c55e; border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1);">
+                                    💬 Share on WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Invites List Card -->
+                    <div class="card glass-card invites-list-card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="font-size: 1.2rem; margin-bottom: 0.2rem;">Generated Invites (<span id="invites-count">0</span>)</h3>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary);">Real-time status of candidate interview links.</p>
+                            </div>
+                        </div>
+                        <div class="table-container" style="max-height: 520px; overflow-y: auto; margin-top: 1rem;">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Candidate</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Expiry / Used</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invites-table-body">
+                                    <tr><td colspan="5" class="text-center text-muted" style="padding: 2rem;">Loading invitations...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
 

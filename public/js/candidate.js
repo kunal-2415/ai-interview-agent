@@ -37,6 +37,7 @@ class CandidateInterviewApp {
         this.initSpeechRecognition();
         this.bindEvents();
         await this.loadAppConfig();
+        await this.checkInviteParameter();
     }
 
     async loadAppConfig() {
@@ -55,6 +56,109 @@ class CandidateInterviewApp {
             }
         } catch (e) {
             console.warn("Could not load config", e);
+        }
+    }
+
+    async checkInviteParameter() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get('invite');
+        if (!inviteToken) return;
+
+        this.inviteToken = inviteToken;
+        const loginCard = document.querySelector('.login-card');
+        if (!loginCard) return;
+
+        try {
+            const res = await fetch(`/api/invite/verify?token=${encodeURIComponent(inviteToken)}`);
+            const data = await res.json();
+
+            if (res.ok && data.ok) {
+                const expireDate = new Date(data.expiresAt);
+                const expireStr = expireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + expireDate.toLocaleDateString();
+
+                loginCard.innerHTML = `
+                    <div class="card-header text-center">
+                        <div class="role-chip glow-pill" style="border-color: #38bdf8; color: #38bdf8;">Verified Candidate Invitation</div>
+                        <h1 class="card-title" style="margin-top: 12px; font-size: 1.8rem;">Welcome, ${data.candidateName}!</h1>
+                        <p class="card-subtitle">You have been personally invited for the <strong>${data.targetRole || 'Technical'}</strong> interview.</p>
+                    </div>
+
+                    <div class="invite-info-box" style="margin: 20px 0; padding: 18px; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; background: rgba(15, 23, 42, 0.65);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="font-size: 0.85rem; color: #94a3b8;">Target Role:</span>
+                            <span style="font-weight: 600; color: #38bdf8;">${data.targetRole}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                            <span style="font-size: 0.85rem; color: #94a3b8;">Link Expiry:</span>
+                            <span style="font-weight: 500; color: #f59e0b;">${expireStr}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 0.85rem; color: #94a3b8;">Security:</span>
+                            <span style="font-size: 0.82rem; color: #10b981; font-weight: 600;">🔒 Single-Use Verified Token</span>
+                        </div>
+                    </div>
+
+                    <div class="security-banner" style="margin-bottom: 24px;">
+                        <span class="security-icon">🛡️</span>
+                        <span>This link is single-use and will expire immediately after you finish. Password is not required.</span>
+                    </div>
+
+                    <button type="button" class="btn-primary btn-glow" id="btn-invite-start" style="width: 100%;">
+                        <span>Begin Setup & CV Upload</span>
+                        <span class="btn-arrow">→</span>
+                    </button>
+                `;
+
+                document.getElementById('btn-invite-start')?.addEventListener('click', async () => {
+                    const btn = document.getElementById('btn-invite-start');
+                    btn.disabled = true;
+                    btn.innerHTML = `<span>Starting Interview Session...</span>`;
+                    try {
+                        const loginData = await this.api('/api/invite/login', { token: this.inviteToken });
+                        this.token = loginData.token;
+                        this.candidateName = loginData.name;
+                        this.transitionTo('CV_UPLOAD');
+                        this.toast(`Welcome, ${loginData.name}! Please upload your CV.`);
+                    } catch (err) {
+                        btn.disabled = false;
+                        btn.innerHTML = `<span>Begin Setup & CV Upload</span><span class="btn-arrow">→</span>`;
+                        this.toast(err.error || "Failed to start interview session.", "error");
+                    }
+                });
+            } else {
+                let errorTitle = "Invitation Expired";
+                let errorIcon = "⏳";
+                let errorMsg = data.error || "This interview invitation is no longer active.";
+                let badgeColor = "#ef4444";
+
+                if (data.status === 'completed') {
+                    errorTitle = "Interview Already Completed";
+                    errorIcon = "✅";
+                    badgeColor = "#a855f7";
+                }
+
+                loginCard.innerHTML = `
+                    <div class="card-header text-center" style="padding: 15px 10px;">
+                        <div style="font-size: 3rem; margin-bottom: 12px;">${errorIcon}</div>
+                        <div class="role-chip" style="background: rgba(239, 68, 68, 0.15); border-color: ${badgeColor}; color: ${badgeColor};">${errorTitle}</div>
+                        <h2 class="card-title" style="margin-top: 14px; font-size: 1.5rem;">${errorTitle}</h2>
+                        <p class="card-subtitle" style="color: #cbd5e1; max-width: 440px; margin: 12px auto; line-height: 1.6;">${errorMsg}</p>
+                        ${data.candidateName ? `<p style="font-size: 0.9rem; color: #94a3b8;">Candidate: <strong>${data.candidateName}</strong></p>` : ''}
+                    </div>
+
+                    <div style="margin: 20px 0; padding: 16px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; background: rgba(15, 23, 42, 0.5); text-align: center;">
+                        <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">
+                            If you require a new invitation link or need to reschedule, please contact your recruitment team or hiring manager.
+                        </p>
+                    </div>
+
+                    <a href="/" class="btn-secondary btn-sm" style="display: block; text-align: center; margin-top: 10px; text-decoration: none;">
+                        Return to Portal Homepage
+                    </a>
+                `;
+            }
+        } catch (e) {
+            console.error("Invite check error:", e);
         }
     }
 

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -13,9 +14,11 @@ const DEFAULT_SETTINGS = {
 export function createStore(dataDir, seed = {}) {
   const interviewsPath = path.join(dataDir, "interviews.json");
   const settingsPath = path.join(dataDir, "settings.json");
+  const invitesPath = path.join(dataDir, "invites.json");
   fs.mkdirSync(path.join(dataDir, "recordings"), { recursive: true });
 
   let interviews = readJson(interviewsPath, []);
+  let invites = readJson(invitesPath, []);
   let settings = normalizeSettings({ ...DEFAULT_SETTINGS, ...seed, ...readJson(settingsPath, {}) });
   if (!fs.existsSync(settingsPath)) atomicWrite(settingsPath, settings);
   let tail = Promise.resolve();
@@ -31,6 +34,10 @@ export function createStore(dataDir, seed = {}) {
 
   function persistInterviews() {
     atomicWrite(interviewsPath, interviews);
+  }
+
+  function persistInvites() {
+    atomicWrite(invitesPath, invites);
   }
 
   return {
@@ -85,6 +92,78 @@ export function createStore(dataDir, seed = {}) {
         interviews = interviews.filter((item) => item.id !== id);
         persistInterviews();
         return session;
+      });
+    },
+
+    listInvites() {
+      const now = Date.now();
+      let changed = false;
+      for (const inv of invites) {
+        if (inv.status === "active" && new Date(inv.expiresAt).getTime() < now) {
+          inv.status = "expired";
+          changed = true;
+        }
+      }
+      if (changed) persistInvites();
+      return invites.map((inv) => ({ ...inv }));
+    },
+
+    getInviteByToken(token) {
+      if (!token) return null;
+      const inv = invites.find((item) => item.token === token);
+      if (!inv) return null;
+      if (inv.status === "active" && new Date(inv.expiresAt).getTime() < Date.now()) {
+        inv.status = "expired";
+        persistInvites();
+      }
+      return { ...inv };
+    },
+
+    createInvite(data) {
+      return locked(async () => {
+        const durationHours = clampInt(data.durationHours, 1, 720, 24);
+        const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+        const candidateName = clip(data.candidateName, 80);
+        if (!candidateName || candidateName.length < 2) {
+          throw new Error("Candidate name is required (at least 2 letters).");
+        }
+        const invite = {
+          id: `inv_${crypto.randomBytes(8).toString("hex")}`,
+          token: `inv_${crypto.randomBytes(24).toString("hex")}`,
+          candidateName,
+          email: clip(data.email || "", 120),
+          targetRole: clip(data.targetRole || settings.targetRole, 80),
+          durationHours,
+          createdAt: new Date().toISOString(),
+          expiresAt,
+          status: "active", // "active" | "completed" | "expired"
+          usedAt: null,
+          sessionId: null,
+        };
+        invites.unshift(invite);
+        persistInvites();
+        return { ...invite };
+      });
+    },
+
+    markInviteUsed(token, sessionId = null) {
+      return locked(async () => {
+        const inv = invites.find((item) => item.token === token);
+        if (!inv) return null;
+        inv.status = "completed";
+        inv.usedAt = new Date().toISOString();
+        if (sessionId) inv.sessionId = sessionId;
+        persistInvites();
+        return { ...inv };
+      });
+    },
+
+    removeInvite(id) {
+      return locked(async () => {
+        const inv = invites.find((item) => item.id === id) || null;
+        invites = invites.filter((item) => item.id !== id);
+        persistInvites();
+        return inv;
       });
     },
   };

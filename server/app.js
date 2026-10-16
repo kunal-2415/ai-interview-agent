@@ -132,6 +132,77 @@ export function createApp(options = {}) {
     res.json({ token: session.token, name: session.name });
   });
 
+  app.get("/api/invite/verify", (req, res) => {
+    const token = String(req.query?.token || "").trim();
+    if (!token) return res.status(400).json({ ok: false, error: "Missing invitation token." });
+    const invite = store.getInviteByToken(token);
+    if (!invite) return res.status(404).json({ ok: false, error: "Invalid invitation link." });
+    if (invite.status === "completed") {
+      return res.status(410).json({
+        ok: false,
+        status: "completed",
+        error: "This interview invitation has already been completed. Each link is single-use only.",
+        candidateName: invite.candidateName,
+      });
+    }
+    if (invite.status === "expired" || new Date(invite.expiresAt).getTime() < Date.now()) {
+      return res.status(410).json({
+        ok: false,
+        status: "expired",
+        error: `This interview invitation link expired on ${new Date(invite.expiresAt).toLocaleString()}. Please contact the hiring team for a new link.`,
+        candidateName: invite.candidateName,
+      });
+    }
+    res.json({
+      ok: true,
+      candidateName: invite.candidateName,
+      targetRole: invite.targetRole,
+      expiresAt: invite.expiresAt,
+      status: "active",
+    });
+  });
+
+  app.post("/api/invite/login", async (req, res) => {
+    const token = String(req.body?.token || "").trim();
+    if (!token) return res.status(400).json({ error: "Missing invitation token." });
+    const invite = store.getInviteByToken(token);
+    if (!invite) return res.status(404).json({ error: "Invalid invitation link." });
+    if (invite.status === "completed") {
+      return res.status(410).json({ error: "This interview link has already been used and completed." });
+    }
+    if (invite.status === "expired" || new Date(invite.expiresAt).getTime() < Date.now()) {
+      return res.status(410).json({ error: "This interview link has expired." });
+    }
+
+    const session = {
+      id: `int_${crypto.randomBytes(8).toString("hex")}`,
+      token: `iv_${crypto.randomBytes(24).toString("hex")}`,
+      inviteToken: invite.token,
+      name: invite.candidateName,
+      createdAt: new Date().toISOString(),
+      status: "entered",
+      cvText: "",
+      cvFileName: "",
+      topics: [],
+      seniority: "",
+      plan: [],
+      qIndex: 0,
+      followUps: 0,
+      currentSpoken: "",
+      currentOnScreen: "",
+      transcript: [],
+      integrity: [],
+      strikes: 0,
+      lastStrikeAt: {},
+      recording: { localPath: "", bytes: 0, lastChunkId: "", driveFileId: "", driveUrl: "", reportUrl: "", driveError: "" },
+      score: null,
+      settingsSnapshot: null,
+      consentAt: "",
+    };
+    await store.create(session);
+    res.json({ token: session.token, name: session.name, targetRole: invite.targetRole });
+  });
+
   app.post("/api/admin/login", (req, res) => {
     if (!config.adminPassword) {
       return res.status(503).json({ error: "Set ADMIN_PASSWORD in the .env file and restart." });
@@ -142,6 +213,38 @@ export function createApp(options = {}) {
     const token = `adm_${crypto.randomBytes(24).toString("hex")}`;
     adminTokens.add(token);
     res.json({ token });
+  });
+
+  app.post("/api/admin/invites", requireAdmin, async (req, res, next) => {
+    try {
+      const name = cleanName(req.body?.candidateName);
+      if (!name) return res.status(400).json({ error: "Candidate full name is required (2–80 letters)." });
+      const targetRole = String(req.body?.targetRole || "").trim() || store.getSettings().targetRole;
+      const durationHours = clampInt(req.body?.durationHours, 1, 720, 24);
+      const email = String(req.body?.email || "").trim().slice(0, 120);
+
+      const invite = await store.createInvite({
+        candidateName: name,
+        targetRole,
+        durationHours,
+        email,
+      });
+
+      res.json({ invite });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/invites", requireAdmin, (_req, res) => {
+    const invites = store.listInvites();
+    res.json({ invites });
+  });
+
+  app.delete("/api/admin/invites/:id", requireAdmin, async (req, res) => {
+    const removed = await store.removeInvite(req.params.id);
+    if (!removed) return res.status(404).json({ error: "Invite not found." });
+    res.json({ ok: true });
   });
 
   app.get("/api/admin/status", requireAdmin, async (_req, res) => {
@@ -459,6 +562,9 @@ export function createApp(options = {}) {
       await Promise.all([scoreSession(session, wasLocked), uploadRecording(session)]);
       await uploadReport(session);
       session.status = "finished";
+      if (session.inviteToken) {
+        await store.markInviteUsed(session.inviteToken, session.id);
+      }
       await store.save(session);
       res.json({ ok: true, status: "finished" });
     } catch (error) {

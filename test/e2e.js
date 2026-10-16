@@ -231,6 +231,96 @@ async function main() {
   assert.ok(disposition && disposition.includes("attachment"), `Expected attachment disposition, got: ${disposition}`);
   console.log("✓ Recording download header verified:", disposition);
 
+  // 15. Verify One-Time Expiring Candidate Invite Link Workflow
+  console.log("\n--- Testing Single-Use Expiring Candidate Invite Workflow ---");
+  const createInvRes = await fetch(`${BASE}/api/admin/invites`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      candidateName: "Siddharth Verma",
+      targetRole: "Cloud Architect",
+      durationHours: 24,
+    }),
+  });
+  assert.equal(createInvRes.status, 200);
+  const invData = await createInvRes.json();
+  const inviteToken = invData.invite.token;
+  console.log("✓ Admin created candidate invite, token:", inviteToken.slice(0, 12) + "...");
+
+  // Verify invite token is active
+  const verifyInvRes = await fetch(`${BASE}/api/invite/verify?token=${inviteToken}`);
+  assert.equal(verifyInvRes.status, 200);
+  const verified = await verifyInvRes.json();
+  assert.equal(verified.candidateName, "Siddharth Verma");
+  assert.equal(verified.status, "active");
+  console.log("✓ Candidate verified invite successfully:", verified.candidateName, "-", verified.targetRole);
+
+  // Candidate logs in with invite token
+  const invLoginRes = await fetch(`${BASE}/api/invite/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: inviteToken }),
+  });
+  assert.equal(invLoginRes.status, 200);
+  const invCandToken = (await invLoginRes.json()).token;
+  console.log("✓ Candidate logged in passwordlessly with invite token:", invCandToken.slice(0, 10) + "...");
+
+  // Candidate uploads CV
+  const sidFormData = new FormData();
+  const sidCvBlob = new Blob([
+    `Siddharth Verma - Lead Cloud Architect.
+    8+ years experience architecting multi-region AWS and GCP cloud environments with Terraform, Kubernetes, and Istio service mesh.
+    Designed zero-downtime canary deployment pipelines for 50+ microservices and reduced cloud infrastructure spending by 35% through automated scaling.`
+  ], { type: "text/plain" });
+  sidFormData.append("cv", sidCvBlob, "siddharth_resume.txt");
+
+  const sidCvRes = await fetch(`${BASE}/api/cv`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${invCandToken}` },
+    body: sidFormData,
+  });
+  assert.equal(sidCvRes.status, 200);
+  console.log("✓ Candidate uploaded resume");
+
+  // Candidate begins interview
+  const invBeginRes = await fetch(`${BASE}/api/interview/begin`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${invCandToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ consent: true }),
+  });
+  assert.equal(invBeginRes.status, 200);
+
+  // Candidate submits recording and finishes interview
+  await fetch(`${BASE}/api/recording/chunk`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${invCandToken}`,
+      "x-chunk-id": "chunk_sid_1",
+      "Content-Type": "application/octet-stream",
+    },
+    body: Buffer.from("RIFF....WEBM_DUMMY_SIDDHARTH_DATA"),
+  });
+
+  const invFinishRes = await fetch(`${BASE}/api/finish`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${invCandToken}` },
+  });
+  assert.equal(invFinishRes.status, 200);
+  console.log("✓ Candidate interview submitted and scored");
+
+  // Verify the invite link is now EXPIRED and CANNOT be reused!
+  const reVerifyRes = await fetch(`${BASE}/api/invite/verify?token=${inviteToken}`);
+  assert.equal(reVerifyRes.status, 410, "Used invite link must return HTTP 410 Gone!");
+  const reVerifyData = await reVerifyRes.json();
+  assert.equal(reVerifyData.status, "completed");
+  console.log("✓ Verified invite link is locked & expired after completion. Re-use prevented!");
+
   console.log("\n==========================================");
   console.log("🎉 ALL END-TO-END VERIFICATION CHECKS PASSED!");
   console.log("==========================================");
