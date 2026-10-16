@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ai-interview-agent
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: INTERVIEW_PASSWORD
+        value: candidate2026
+      - key: ADMIN_PASSWORD
+        value: adminsecret2026
+      - key: COMPANY_NAME
+        value: My Company
+      - key: TARGET_ROLE
+        value: Candidate
+      - key: INTERVIEW_LANGUAGE
+        value: English
+      - key: QUESTION_COUNT
+        value: 5
+      - key: MAX_STRIKES
+        value: 3
+      - key: PERPLEXITY_API_KEY
+        sync: false

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Technical Interview Platform</title>
+    <meta name="description" content="Autonomous AI Technical Interview Platform with real-time CV analysis, speech recognition, and proctoring.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="candidate-app">
+    <!-- Background Gradient Accents -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <!-- Navigation Header -->
+    <header class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-logo">
+                <span class="logo-core">AI</span>
+            </div>
+            <div class="brand-info">
+                <span class="brand-name" id="nav-company-name">Apex Global Tech</span>
+                <span class="brand-badge" id="nav-target-role">Technical Assessment</span>
+            </div>
+        </div>
+        <div class="nav-status">
+            <span class="status-pill status-ready" id="nav-connection-status">
+                <span class="status-dot"></span> System Online
+            </span>
+        </div>
+    </header>
+
+    <div id="app" class="main-content">
+        <!-- 1. LOGIN VIEW -->
+        <section id="view-login" class="view active">
+            <div class="card glass-card login-card">
+                <div class="card-header text-center">
+                    <div class="role-chip" id="login-role-chip">Candidate Verification</div>
+                    <h1 class="card-title">Welcome to Your AI Interview</h1>
+                    <p class="card-subtitle">Verify your identity and enter your access credentials to proceed.</p>
+                </div>
+
+                <form id="form-login" class="modern-form">
+                    <div class="input-group">
+                        <label for="login-name">Candidate Full Name</label>
+                        <div class="input-wrapper">
+                            <span class="input-icon">👤</span>
+                            <input type="text" id="login-name" name="name" required placeholder="e.g. Alexandra Chen" autocomplete="name">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="login-password">Interview Access Password</label>
+                        <div class="input-wrapper">
+                            <span class="input-icon">🔑</span>
+                            <input type="password" id="login-password" name="password" required placeholder="Enter password from invitation" autocomplete="current-password">
+                        </div>
+                    </div>
+
+                    <div class="security-banner">
+                        <span class="security-icon">🛡️</span>
+                        <span>This session is actively proctored. Audio, video, and tab focus are monitored for integrity.</span>
+                    </div>
+
+                    <button type="submit" class="btn-primary btn-glow" id="btn-login-submit">
+                        <span>Continue to CV Upload</span>
+                        <span class="btn-arrow">→</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- 2. CV UPLOAD VIEW -->
+        <section id="view-cv" class="view">
+            <div class="card glass-card cv-card">
+                <div class="card-header text-center">
+                    <div class="step-indicator">Step 1 of 3</div>
+                    <h1 class="card-title">Upload Your Resume</h1>
+                    <p class="card-subtitle">Our AI interviewer parses your technical background to tailor targeted questions.</p>
+                </div>
+
+                <div id="cv-dropzone" class="dropzone" tabindex="0">
+                    <input type="file" id="cv-upload" accept=".pdf,.docx,.txt" hidden>
+                    <div class="dropzone-content">
+                        <div class="upload-icon-wrapper">
+                            <span class="upload-icon">📄</span>
+                        </div>
+                        <h3>Drag & drop your CV file here</h3>
+                        <p class="dropzone-sub">Supports <strong class="format-pill">PDF</strong> <strong class="format-pill">DOCX</strong> <strong class="format-pill">TXT</strong> (Up to 8 MB)</p>
+                        <button type="button" class="btn-secondary btn-sm" id="btn-browse-file">Browse Local File</button>
+                    </div>
+                </div>
+
+                <div id="file-preview" class="file-preview hidden">
+                    <div class="file-info">
+                        <span class="file-icon">📑</span>
+                        <div class="file-details">
+                            <span id="file-name" class="file-name-text">resume.pdf</span>
+                            <span id="file-size" class="file-size-text">0 KB</span>
+                        </div>
+                    </div>
+                    <button type="button" id="remove-file" class="btn-text-danger" title="Remove file">✕ Remove</button>
+                </div>
+
+                <!-- Or Paste Text Option -->
+                <details class="text-cv-accordion">
+                    <summary>Or paste CV text directly</summary>
+                    <div class="textarea-wrapper">
+                        <textarea id="cv-text-manual" placeholder="Paste your resume or list of technical skills and past projects here..." rows="4"></textarea>
+                    </div>
+                </details>
+
+                <button type="button" id="btn-analyze-cv" class="btn-primary btn-glow" disabled>
+                    <span>Analyze CV & Prepare Interview</span>
+                    <span class="btn-arrow">⚡</span>
+                </button>
+
+                <div class="loader-overlay hidden" id="cv-loader">
+                    <div class="scanner-box">
+                        <div class="scanner-laser"></div>
+                        <span class="scanner-text">Analyzing Experience & Calibrating Questions...</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. READY / CALIBRATION VIEW -->
+        <section id="view-ready" class="view">
+            <div class="card glass-card ready-card">
+                <div class="card-header text-center">
+                    <div class="step-indicator">Step 2 of 3</div>
+                    <h1 class="card-title">Interview Calibration</h1>
+                    <p class="card-subtitle">Review your generated interview profile and perform the hardware check.</p>
+                </div>
+
+                <div class="profile-grid">
+                    <div class="profile-stat-box">
+                        <span class="stat-label">Detected Role</span>
+                        <span class="stat-value seniority-badge" id="summary-detected-role">Data Analyst</span>
+                    </div>
+                    <div class="profile-stat-box">
+                        <span class="stat-label">Assessed Seniority</span>
+                        <span class="stat-value seniority-badge" id="summary-seniority">Senior</span>
+                    </div>
+                    <div class="profile-stat-box">
+                        <span class="stat-label">Questions</span>
+                        <span class="stat-value" id="summary-question-count">5 Questions</span>
+                    </div>
+                    <div class="profile-stat-box">
+                        <span class="stat-label">Est. Duration</span>
+                        <span class="stat-value">15–20 Mins</span>
+                    </div>
+                </div>
+
+                <div class="topics-section">
+                    <span class="section-label">Key Topics Extracted from Your Background:</span>
+                    <div id="summary-topics" class="tag-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Hardware & Camera Test Box -->
+                <div class="hardware-check-box">
+                    <div class="hardware-header">
+                        <span class="hw-title">🎥 Proctoring & Audio Preview</span>
+                        <span class="hw-status" id="hw-status-label">Standby</span>
+                    </div>
+                    <div class="preview-layout">
+                        <div class="video-preview-wrapper">
+                            <video id="camera-test-video" autoplay playsinline muted></video>
+                            <div class="camera-placeholder" id="camera-placeholder">
+                                <span>Click "Test Camera & Mic" below</span>
+                            </div>
+                        </div>
+                        <div class="audio-meter-wrapper">
+                            <div class="meter-label">Mic Input Level:</div>
+                            <div class="vu-meter">
+                                <div class="vu-bar" id="vu-bar"></div>
+                            </div>
+                            <button type="button" class="btn-secondary btn-sm" id="btn-test-devices">Test Camera & Mic</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="proctoring-guidelines">
+                    <h4>📋 Rules of Integrity</h4>
+                    <ul>
+                        <li>Stay inside fullscreen mode throughout the interview.</li>
+                        <li>Exiting the tab or switching windows triggers an automated strike.</li>
+                        <li>3 strikes will permanently lock the interview session.</li>
+                    </ul>
+                </div>
+
+                <div class="consent-box">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="consent-recording">
+                        <span class="checkmark"></span>
+                        <span class="consent-text">I consent to audio and video recording and agree to adhere to all proctoring rules.</span>
+                    </label>
+                </div>
+
+                <button type="button" id="btn-start-interview" class="btn-primary btn-glow" disabled>
+                    <span>Enter Proctored Interview</span>
+                    <span class="btn-arrow">🚀</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 4. LIVE INTERVIEW ROOM -->
+        <section id="view-live" class="view">
+            <header class="live-header glass-card">
+                <div class="live-meta">
+                    <span class="role-pill" id="live-role-badge">Software Engineer</span>
+                    <div class="progress-info">
+                        Question <strong id="current-question">1</strong> of <span id="total-questions">5</span>
+                    </div>
+                    <div id="follow-up-badge" class="follow-up-pill hidden">
+                        ⚡ Follow-up Probe
+                    </div>
+                </div>
+
+                <div class="live-metrics">
+                    <div class="strike-indicator" id="strike-badge">
+                        <span class="strike-icon">🛡️</span> Strikes: <strong id="strike-count">0</strong>/<span id="max-strikes-count">3</span>
+                    </div>
+                    <div class="session-timer" id="session-timer">00:00</div>
+                    <div class="recording-badge">
+                        <span class="rec-dot"></span> REC
+                    </div>
+                </div>
+            </header>
+
+            <main class="live-stage">
+                <!-- Left Pane: AI Interviewer -->
+                <div class="ai-stage-panel glass-card">
+                    <div class="ai-persona-header">
+                        <div class="ai-avatar-wrapper">
+                            <div class="avatar-pulse-ring"></div>
+                            <div class="ai-avatar">🤖</div>
+                        </div>
+                        <div class="ai-status-block">
+                            <div class="interviewer-name">AI Senior Interviewer</div>
+                            <div class="voice-status" id="voice-status-text">
+                                <span class="voice-wave-bars">
+                                    <span></span><span></span><span></span><span></span>
+                                </span>
+                                <span id="voice-label">Ready</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-icon" id="btn-replay-audio" title="Replay question audio">
+                            🔊 Replay Voice
+                        </button>
+                    </div>
+
+                    <div class="question-display">
+                        <div class="topic-tag" id="current-topic-badge">Architecture & System Design</div>
+                        <div class="ai-speech-bubble" id="ai-speech-text">
+                            Connecting to interview session...
+                        </div>
+                    </div>
+
+                    <div class="prompt-code-panel" id="prompt-code-panel">
+                        <div class="code-panel-header">
+                            <span class="code-tab">Context / Scenario Snippet</span>
+                            <span class="code-hint">Read-only context</span>
+                        </div>
+                        <pre class="on-screen-content" id="on-screen-content">// Prompt content will appear here.</pre>
+                    </div>
+                </div>
+
+                <!-- Right Pane: Candidate Response Station -->
+                <div class="candidate-stage-panel glass-card">
+                    <div class="camera-proctoring-hud">
+                        <video id="live-candidate-video" autoplay playsinline muted></video>
+                        <div class="hud-overlay">
+                            <span class="hud-status">● Live Stream Active</span>
+                            <div class="hud-face-reticle"></div>
+                        </div>
+                    </div>
+
+                    <div class="response-station">
+                        <div class="response-header">
+                            <span class="response-title">Candidate Spoken Response</span>
+                            <span class="answer-timer" id="answer-timer">00:00</span>
+                        </div>
+
+                        <!-- Live transcript & Editable Textarea -->
+                        <div class="transcript-editor-box">
+                            <textarea id="candidate-answer-text" placeholder="Speak your answer into the microphone, or type here directly..." rows="6"></textarea>
+                        </div>
+
+                        <div class="speech-control-bar">
+                            <button type="button" class="btn-speech active" id="btn-toggle-mic">
+                                <span class="mic-icon">🎙️</span>
+                                <span id="mic-status-label">Listening (Click to Pause)</span>
+                            </button>
+                            <button type="button" class="btn-secondary btn-sm" id="btn-clear-transcript">Clear</button>
+                        </div>
+
+                        <div class="submit-action-wrapper">
+                            <button type="button" id="btn-skip-question" class="btn-secondary" title="Skip to next question">
+                                <span>⏭️ Skip / Move On</span>
+                            </button>
+                            <button type="button" id="btn-submit-answer" class="btn-primary btn-glow btn-lg">
+                                <span>Submit Answer & Continue</span>
+                                <span class="btn-arrow">→</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- 5. FINISHED VIEW -->
+        <section id="view-finished" class="view">
+            <div class="card glass-card text-center finished-card">
+                <div class="celebration-icon">✨</div>
+                <h1 class="card-title">Interview Completed!</h1>
+                <p class="card-subtitle">Thank you for completing your technical assessment with Apex Global Tech.</p>
+
+                <div class="finish-summary-box">
+                    <div class="finish-row">
+                        <span>Assessment Status:</span>
+                        <span class="badge-success">Submitted & Scored</span>
+                    </div>
+                    <div class="finish-row">
+                        <span>Audio & Video Log:</span>
+                        <span class="badge-neutral">Saved to Archive</span>
+                    </div>
+                    <div class="finish-row">
+                        <span>Evaluation Review:</span>
+                        <span class="badge-neutral">Hiring Team Notified</span>
+                    </div>
+                </div>
+
+                <p class="footer-note">Our recruiting and engineering leadership team will review your responses and reach out shortly.</p>
+            </div>
+        </section>
+
+        <!-- 6. LOCKED VIEW (PROCTORING BREACH) -->
+        <section id="view-locked" class="view">
+            <div class="card glass-card text-center locked-card">
+                <div class="locked-icon">🚫</div>
+                <h1 class="card-title text-danger">Interview Terminated</h1>
+                <p class="card-subtitle">The automated proctoring monitor detected repeated integrity violations.</p>
+
+                <div class="lock-details-box">
+                    <p><strong>Reason:</strong> Maximum proctoring strikes limit exceeded (3 strikes).</p>
+                    <p>Your session recording, strike timeline, and transcripts have been archived for audit review.</p>
+                </div>
+
+                <p class="footer-note">If you believe this was an error, please contact your recruiting coordinator.</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Strike Warning Modal Dialog -->
+    <div id="strike-modal" class="overlay hidden">
+        <div class="modal warning-modal glass-card">
+            <div class="warning-header">
+                <span class="warning-icon">⚠️</span>
+                <h2>Proctoring Warning!</h2>
+            </div>
+            <p id="strike-warning-message">Tab switched or focus was lost. Please keep your browser in fullscreen mode.</p>
+            <div class="strike-warning-count">
+                Strike <span id="modal-strike-num">1</span> of 3
+            </div>
+            <button type="button" class="btn-primary" id="btn-dismiss-strike">I Understand & Return</button>
+        </div>
+    </div>
+
+    <!-- Global Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Main Client Script -->
+    <script type="module" src="js/candidate.js"></script>
+</body>
+</html>

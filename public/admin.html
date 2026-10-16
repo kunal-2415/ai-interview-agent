@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Intelligence Dashboard | AI Interview Agent</title>
+    <meta name="description" content="Hiring leadership dashboard for candidate interview scoring, proctoring audit, and system management.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-app">
+    <!-- Ambient Gradient Accents -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <!-- Login Overlay Modal -->
+    <div id="login-overlay" class="overlay">
+        <div class="modal glass-card admin-login-modal">
+            <div class="modal-brand text-center">
+                <div class="brand-badge-large">🛡️</div>
+                <h2>Admin Portal Access</h2>
+                <p>Enter administrator security credentials to unlock hiring analytics and proctoring logs.</p>
+            </div>
+            <form id="login-form" class="modern-form">
+                <div class="input-group">
+                    <label for="admin-password">Administrator Password</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" id="admin-password" placeholder="Enter admin password" required autocomplete="current-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary btn-glow" id="btn-admin-login">
+                    <span>Unlock Dashboard</span>
+                    <span class="btn-arrow">→</span>
+                </button>
+            </form>
+            <div id="login-error" class="error-banner hidden">Invalid credentials. Please verify your password.</div>
+        </div>
+    </div>
+
+    <!-- Main Admin Layout -->
+    <div id="main-layout" class="admin-layout hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="admin-sidebar glass-card">
+            <div class="sidebar-brand">
+                <div class="logo-box">AI</div>
+                <div class="brand-text">
+                    <h3>Interview AI</h3>
+                    <span>Admin Control</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button type="button" class="nav-item active" data-view="status-view">
+                    <span class="nav-icon">📊</span>
+                    <span>System Status</span>
+                </button>
+                <button type="button" class="nav-item" data-view="interviews-view">
+                    <span class="nav-icon">👥</span>
+                    <span>Candidate Reviews</span>
+                </button>
+                <button type="button" class="nav-item" data-view="settings-view">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Hiring Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="admin-badge">
+                    <span class="online-indicator"></span>
+                    <span>Super Admin</span>
+                </div>
+                <button type="button" id="logout-btn" class="btn-logout" title="Sign out of admin session">
+                    🚪 Sign Out
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="admin-content">
+            <!-- 1. System Status View -->
+            <section id="status-view" class="admin-view active">
+                <header class="content-header">
+                    <div>
+                        <h1 class="page-title">System Infrastructure & Connectivity</h1>
+                        <p class="page-desc">Real-time status of AI inference models, cloud storage integrations, and proctoring monitors.</p>
+                    </div>
+                    <button type="button" class="btn-secondary btn-sm" id="btn-refresh-status">🔄 Refresh Status</button>
+                </header>
+
+                <div class="status-grid">
+                    <div class="status-card glass-card" id="status-ai">
+                        <div class="status-card-header">
+                            <span class="status-icon-box">🧠</span>
+                            <span class="status-pill status-ready" id="ai-status-pill">Active</span>
+                        </div>
+                        <div class="status-card-body">
+                            <h3>AI Interview Engine</h3>
+                            <p class="status-detail" id="ai-model-name">sonar-pro / Built-in Engine</p>
+                            <span class="status-meta" id="ai-status-desc">Ready to conduct calibrated technical evaluations.</span>
+                        </div>
+                    </div>
+
+                    <div class="status-card glass-card" id="status-gdrive">
+                        <div class="status-card-header">
+                            <span class="status-icon-box">☁️</span>
+                            <span class="status-pill" id="drive-status-pill">Local Storage</span>
+                        </div>
+                        <div class="status-card-body">
+                            <h3>Video & Report Storage</h3>
+                            <p class="status-detail" id="drive-folder-name">Local Server Storage Active</p>
+                            <span class="status-meta" id="drive-status-desc">All recordings saved securely on server disk.</span>
+                        </div>
+                    </div>
+
+                    <div class="status-card glass-card">
+                        <div class="status-card-header">
+                            <span class="status-icon-box">🛡️</span>
+                            <span class="status-pill status-ready">Enabled</span>
+                        </div>
+                        <div class="status-card-body">
+                            <h3>Integrity & Anti-Cheat Engine</h3>
+                            <p class="status-detail" id="proctoring-rule-summary">Max 3 Strikes Allowed</p>
+                            <span class="status-meta">Detects blur, tab switch, copy/paste, and fullscreen breaches.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Hiring Overview Card -->
+                <div class="quick-profile-card glass-card">
+                    <h3>Current Role Pipeline Configuration</h3>
+                    <div class="profile-info-grid">
+                        <div class="info-block">
+                            <span class="info-label">Company Name</span>
+                            <strong class="info-value" id="quick-company">—</strong>
+                        </div>
+                        <div class="info-block">
+                            <span class="info-label">Target Role</span>
+                            <strong class="info-value" id="quick-role">—</strong>
+                        </div>
+                        <div class="info-block">
+                            <span class="info-label">Question Count</span>
+                            <strong class="info-value" id="quick-qcount">—</strong>
+                        </div>
+                        <div class="info-block">
+                            <span class="info-label">Interview Language</span>
+                            <strong class="info-value" id="quick-lang">—</strong>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Candidate Interviews View -->
+            <section id="interviews-view" class="admin-view hidden">
+                <header class="content-header">
+                    <div>
+                        <h1 class="page-title">Candidate Assessments</h1>
+                        <p class="page-desc">Comprehensive scores, turn-by-turn transcripts, video recordings, and proctoring audits.</p>
+                    </div>
+                    <button type="button" class="btn-secondary btn-sm" id="btn-refresh-interviews">🔄 Reload Table</button>
+                </header>
+
+                <!-- Metric Summary Ribbon -->
+                <div class="metrics-ribbon">
+                    <div class="ribbon-card glass-card">
+                        <span class="ribbon-label">Total Candidates</span>
+                        <strong class="ribbon-value" id="stat-total-interviews">0</strong>
+                    </div>
+                    <div class="ribbon-card glass-card">
+                        <span class="ribbon-label">Strong Hire / Hire</span>
+                        <strong class="ribbon-value text-success" id="stat-hires">0</strong>
+                    </div>
+                    <div class="ribbon-card glass-card">
+                        <span class="ribbon-label">Avg Technical Score</span>
+                        <strong class="ribbon-value text-indigo" id="stat-avg-score">0</strong>
+                    </div>
+                    <div class="ribbon-card glass-card">
+                        <span class="ribbon-label">Proctoring Flags</span>
+                        <strong class="ribbon-value text-warning" id="stat-flagged">0</strong>
+                    </div>
+                </div>
+
+                <!-- Table Controls (Search & Filter) -->
+                <div class="table-controls glass-card">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="filter-search" placeholder="Search by candidate name or role...">
+                    </div>
+                    <div class="filter-pills">
+                        <button type="button" class="filter-pill active" data-filter="all">All</button>
+                        <button type="button" class="filter-pill" data-filter="finished">Completed</button>
+                        <button type="button" class="filter-pill" data-filter="live">In Progress</button>
+                        <button type="button" class="filter-pill" data-filter="locked">Locked</button>
+                    </div>
+                </div>
+
+                <!-- Table Container -->
+                <div class="table-container glass-card">
+                    <table class="modern-table" id="interviews-table">
+                        <thead>
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Interview Date</th>
+                                <th>Status</th>
+                                <th>Recommendation</th>
+                                <th>Score (0–100)</th>
+                                <th>Integrity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="interviews-body">
+                            <!-- Populated dynamically via admin.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. General Settings View -->
+            <section id="settings-view" class="admin-view hidden">
+                <header class="content-header">
+                    <div>
+                        <h1 class="page-title">Interview Configuration</h1>
+                        <p class="page-desc">Calibrate company parameters, default hiring roles, question density, and custom interview instructions.</p>
+                    </div>
+                </header>
+
+                <div class="card glass-card settings-card">
+                    <form id="settings-form" class="modern-form">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label for="companyName">Company Name</label>
+                                <input type="text" id="companyName" name="companyName" placeholder="e.g. Apex Global Tech" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="targetRole">Target Role Title</label>
+                                <input type="text" id="targetRole" name="targetRole" placeholder="e.g. Senior Full Stack Engineer" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label for="questionCount">Questions per Interview (4–10)</label>
+                                <input type="number" id="questionCount" name="questionCount" min="4" max="10" value="5" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="language">Primary Interview Language</label>
+                                <input type="text" id="language" name="language" placeholder="English, Spanish, French, etc." value="English" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="focusNotes">Hiring Manager Focus Notes (Instructions for AI Interviewer)</label>
+                            <textarea id="focusNotes" name="focusNotes" rows="5" placeholder="Probe real project decisions, tradeoffs, production failures, system architecture, and fundamentals. Reject buzzwords."></textarea>
+                            <small class="helper-text">These instructions guide how strictly the AI probes trade-offs and generates follow-up questions.</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary btn-glow" id="btn-save-settings">
+                                <span>Save & Apply Settings</span>
+                                <span class="btn-arrow">✓</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Detailed Candidate Evaluation Modal -->
+    <div id="report-modal" class="overlay hidden">
+        <div class="modal report-modal glass-card">
+            <div class="report-modal-header">
+                <div class="candidate-header-info">
+                    <h2 id="report-candidate-name">Alexandra Chen</h2>
+                    <div class="header-badges">
+                        <span class="role-chip" id="report-candidate-role">Senior Full Stack Engineer</span>
+                        <span class="recommendation-badge badge-hire" id="report-recommendation-badge">STRONG HIRE</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close-modal" id="btn-close-modal" title="Close report">✕</button>
+            </div>
+
+            <!-- Modal Nav Tabs -->
+            <div class="report-nav-tabs">
+                <button type="button" class="tab-btn active" data-tab="tab-summary">AI Score & Dossier</button>
+                <button type="button" class="tab-btn" data-tab="tab-recording">Session Video & Audio</button>
+                <button type="button" class="tab-btn" data-tab="tab-transcript">Turn-by-Turn Transcript</button>
+                <button type="button" class="tab-btn" data-tab="tab-integrity">Proctoring Audit Log</button>
+            </div>
+
+            <div class="report-modal-body">
+                <!-- TAB 1: Evaluation Summary -->
+                <div id="tab-summary" class="tab-content active">
+                    <!-- Top Score Highlight -->
+                    <div class="overall-score-banner">
+                        <div class="score-circle">
+                            <span class="score-num" id="report-overall-score">92</span>
+                            <span class="score-denom">/100</span>
+                        </div>
+                        <div class="score-summary-text">
+                            <h3>Executive Summary for Hiring Leadership</h3>
+                            <p id="report-summary-text">Loading candidate summary...</p>
+                        </div>
+                    </div>
+
+                    <!-- 6 Dimension Metric Grid -->
+                    <h4 class="section-title">Dimension Breakdown (0 to 10)</h4>
+                    <div class="metrics-grid" id="metrics-grid">
+                        <!-- Rendered dynamically -->
+                    </div>
+
+                    <!-- Strengths and Gaps Grid -->
+                    <div class="strengths-gaps-grid">
+                        <div class="insights-card glass-card card-strengths">
+                            <h4>✅ Key Technical Strengths</h4>
+                            <ul id="report-strengths-list"></ul>
+                        </div>
+                        <div class="insights-card glass-card card-gaps">
+                            <h4>⚠️ Identified Technical Gaps</h4>
+                            <ul id="report-gaps-list"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Recording Player -->
+                <div id="tab-recording" class="tab-content hidden">
+                    <div class="recording-player-box glass-card">
+                        <div class="player-header">
+                            <span class="player-title">Candidate Web & Audio Stream Archive</span>
+                            <span class="player-status" id="recording-status-tag">Recorded</span>
+                        </div>
+                        <div class="video-container">
+                            <video id="report-video-player" controls preload="metadata" playsinline class="modal-video-player">
+                                Your browser does not support HTML5 video playback.
+                            </video>
+                        </div>
+                        <div class="player-actions">
+                            <a id="btn-download-recording" class="btn-secondary btn-sm" download="interview-recording.webm" target="_blank">
+                                ⬇ Download Video (.webm)
+                            </a>
+                            <button type="button" class="btn-secondary btn-sm" id="btn-sync-drive">
+                                ☁ Re-sync to Google Drive
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Full Turn-by-Turn Transcript -->
+                <div id="tab-transcript" class="tab-content hidden">
+                    <div class="transcript-list" id="report-transcript-list">
+                        <!-- Q&A populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- TAB 4: Proctoring Audit Log -->
+                <div id="tab-integrity" class="tab-content hidden">
+                    <div class="integrity-summary-box glass-card">
+                        <div class="integrity-stat">
+                            <span>Total Proctoring Strikes:</span>
+                            <strong id="report-strikes-total" class="text-danger">0</strong>
+                        </div>
+                        <div class="integrity-summary-desc" id="report-integrity-summary">
+                            Session integrity verified. No cheating flags detected.
+                        </div>
+                    </div>
+
+                    <div class="table-container glass-card">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Incident Type</th>
+                                    <th>Audit Detail</th>
+                                    <th>Strike Awarded</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-integrity-log-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Admin Controller Script -->
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>
