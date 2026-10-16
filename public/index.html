@@ -166,22 +166,38 @@
                 <!-- Hardware & Camera Test Box -->
                 <div class="hardware-check-box">
                     <div class="hardware-header">
-                        <span class="hw-title">🎥 Proctoring & Audio Preview</span>
-                        <span class="hw-status" id="hw-status-label">Standby</span>
+                        <span class="hw-title">🎥 Proctoring & Audio Preview (Strict Requirement)</span>
+                        <span class="hw-status" id="hw-status-label">Verification Required</span>
                     </div>
+
+                    <!-- Hardware Status Badges -->
+                    <div class="device-pills-row">
+                        <span class="device-pill pill-unverified" id="camera-status-pill">📷 Camera: Unverified</span>
+                        <span class="device-pill pill-unverified" id="mic-status-pill">🎙️ Microphone: Unverified</span>
+                    </div>
+
+                    <!-- Blocking Hardware Alert Banner -->
+                    <div id="hw-alert-box" class="hw-alert-banner hidden">
+                        <span class="hw-alert-icon">⚠️</span>
+                        <div class="hw-alert-msg">
+                            <strong>Camera & Microphone Required:</strong>
+                            <span>No working webcam or microphone was detected. This interview enforces strict anti-cheating video proctoring. You cannot proceed on this device without connecting a camera and mic.</span>
+                        </div>
+                    </div>
+
                     <div class="preview-layout">
                         <div class="video-preview-wrapper">
                             <video id="camera-test-video" autoplay playsinline muted></video>
                             <div class="camera-placeholder" id="camera-placeholder">
-                                <span>Click "Test Camera & Mic" below</span>
+                                <span>Click "Verify Camera & Mic" below</span>
                             </div>
                         </div>
                         <div class="audio-meter-wrapper">
-                            <div class="meter-label">Mic Input Level:</div>
+                            <div class="meter-label">Live Microphone Level:</div>
                             <div class="vu-meter">
                                 <div class="vu-bar" id="vu-bar"></div>
                             </div>
-                            <button type="button" class="btn-secondary btn-sm" id="btn-test-devices">Test Camera & Mic</button>
+                            <button type="button" class="btn-secondary btn-sm" id="btn-test-devices">Verify Camera & Mic</button>
                         </div>
                     </div>
                 </div>
@@ -189,6 +205,7 @@
                 <div class="proctoring-guidelines">
                     <h4>📋 Rules of Integrity</h4>
                     <ul>
+                        <li>Active camera and microphone must remain on at all times.</li>
                         <li>Stay inside fullscreen mode throughout the interview.</li>
                         <li>Exiting the tab or switching windows triggers an automated strike.</li>
                         <li>3 strikes will permanently lock the interview session.</li>
@@ -199,13 +216,12 @@
                     <label class="checkbox-container">
                         <input type="checkbox" id="consent-recording">
                         <span class="checkmark"></span>
-                        <span class="consent-text">I consent to audio and video recording and agree to adhere to all proctoring rules.</span>
+                        <span class="consent-text">I consent to continuous audio and video recording and agree to adhere to all proctoring rules.</span>
                     </label>
                 </div>
 
-                <button type="button" id="btn-start-interview" class="btn-primary btn-glow" disabled>
-                    <span>Enter Proctored Interview</span>
-                    <span class="btn-arrow">🚀</span>
+                <button type="button" id="btn-start-interview" class="btn-primary" disabled>
+                    <span>🔒 Verify Camera & Mic to Enable</span>
                 </button>
             </div>
         </section>

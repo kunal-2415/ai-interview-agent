@@ -283,6 +283,9 @@ export function createApp(options = {}) {
         return res.status(409).json({ error: "Upload a CV before starting." });
       }
       if (!req.body?.consent) return res.status(400).json({ error: "Recording consent is required." });
+      if (req.body?.hasDevices === false) {
+        return res.status(400).json({ error: "A verified webcam and microphone are required to begin the interview." });
+      }
       session.status = "live";
       session.consentAt = session.consentAt || new Date().toISOString();
       session.qIndex = 0;
@@ -364,8 +367,9 @@ export function createApp(options = {}) {
           question: session.currentSpoken,
           answer: answer || "Candidate chose to skip this question.",
           answerMs,
-          score: 2,
+          score: 0,
           coverage: "skipped",
+          isSkipped: true,
           note: "Candidate requested to skip or move on to the next question.",
         });
 
@@ -496,14 +500,21 @@ export function createApp(options = {}) {
   async function scoreSession(session, wasLocked) {
     if (session.score) return session.score;
     const settings = session.settingsSnapshot || store.getSettings();
+    const recordingBytes = Number(session.recording?.bytes) || 0;
     const score = await ai.finalScore({
       settings,
       cvText: session.cvText,
       transcript: session.transcript,
       integrity: session.integrity,
       strikes: session.strikes,
+      recordingBytes,
     });
-    if (wasLocked) {
+    if (recordingBytes === 0) {
+      score.integrity = 0;
+      score.integrityGate = true;
+      score.recommendation = "no_hire";
+      score.integritySummary = "FAILED PROCTORING: No webcam or microphone feed was captured during this session.";
+    } else if (wasLocked) {
       score.recommendation = "no_hire";
       score.integrity = Math.min(Number(score.integrity) || 0, 2);
       score.integrityGate = true;

@@ -694,7 +694,7 @@ export function assessOfflineAnswer({ question, followUps, answer, answerMs }) {
   // If candidate is asking to move on or skip, behave gracefully like a human!
   if (isMoveOnOrSkipIntent(text)) {
     return {
-      answerScore: 2,
+      answerScore: 0,
       coverage: "skipped",
       isSkipped: true,
       followUp: "", // NO FOLLOW UP!
@@ -773,17 +773,47 @@ export function assessOfflineAnswer({ question, followUps, answer, answerMs }) {
   };
 }
 
-export function scoreOfflineSession({ cvText, transcript, strikes }) {
+export function scoreOfflineSession({ cvText, transcript, strikes, recordingBytes = 1000 }) {
   const turns = transcript || [];
   const count = turns.length;
 
+  const validAnswers = turns.filter(
+    (t) => !t.isSkipped && !isMoveOnOrSkipIntent(t.answer) && Number(t.score) > 0 && String(t.answer || "").trim().split(/\s+/).length >= 5
+  );
+
+  const hasStream = recordingBytes > 0;
+
+  // If candidate skipped all questions or provided zero substantive answers:
+  if (validAnswers.length === 0 || count === 0) {
+    return {
+      overall: 0,
+      recommendation: "no_hire",
+      correctness: 0,
+      depth: 0,
+      problemSolving: 0,
+      communication: 0,
+      cvHonesty: 0,
+      integrity: hasStream ? Math.max(0, 10 - (strikes || 0) * 3) : 0,
+      summary: `The candidate completed 0 out of ${count} interview questions. All questions were skipped or unattempted. Recommended status: NO HIRE (INCOMPLETE).`,
+      strengths: ["No technical competency demonstrated (all evaluation questions were skipped or unattempted)."],
+      gaps: [
+        "Candidate skipped or was unable to answer evaluation questions.",
+        "Zero demonstrated domain competency across assessed topics.",
+        hasStream ? "No verbal or written responses provided." : "CRITICAL: No camera or microphone video stream was recorded."
+      ],
+      integritySummary: hasStream
+        ? (strikes > 0 ? `${strikes} integrity strike(s) recorded.` : "Zero valid responses submitted.")
+        : "PROCTORING FAILED: No webcam or microphone video feed was recorded.",
+    };
+  }
+
   let totalScore = 0;
   for (const turn of turns) {
-    totalScore += Number(turn.score) || 5;
+    totalScore += turn.isSkipped ? 0 : (Number(turn.score) || 0);
   }
-  const avgTurn = count > 0 ? totalScore / count : 5;
+  const avgTurn = count > 0 ? totalScore / count : 0;
 
-  const integrityScore = Math.max(0, 10 - (strikes || 0) * 3);
+  const integrityScore = hasStream ? Math.max(0, 10 - (strikes || 0) * 3) : 0;
   const correctness = Math.min(10, Math.round((avgTurn * 0.95 + 0.3) * 10) / 10);
   const depth = Math.min(10, Math.round((avgTurn * 0.9 + 0.5) * 10) / 10);
   const problemSolving = Math.min(10, Math.round((avgTurn * 0.92 + 0.4) * 10) / 10);
@@ -794,26 +824,46 @@ export function scoreOfflineSession({ cvText, transcript, strikes }) {
     (correctness * 0.25 + depth * 0.25 + problemSolving * 0.2 + communication * 0.15 + cvHonesty * 0.15) * 10
   );
 
-  if (strikes >= 3) overall = Math.min(overall, 45);
+  if (strikes >= 3 || !hasStream) overall = Math.min(overall, 45);
 
   let recommendation = "borderline";
-  if (overall >= 78 && strikes === 0) recommendation = "strong_hire";
-  else if (overall >= 65 && strikes <= 1) recommendation = "hire";
-  else if (overall < 50 || strikes >= 3) recommendation = "no_hire";
+  if (overall >= 78 && strikes === 0 && hasStream) recommendation = "strong_hire";
+  else if (overall >= 65 && strikes <= 1 && hasStream) recommendation = "hire";
+  else if (overall < 50 || strikes >= 3 || !hasStream) recommendation = "no_hire";
 
-  const strengths = [
-    "Demonstrated practical domain competency aligned with their background",
-    "Articulated technical reasoning and problem breakdown clearly",
-    "Maintained composure during technical evaluation",
-  ];
+  const strengths = [];
+  const strongTurns = turns.filter((t) => Number(t.score) >= 6);
+  if (strongTurns.length > 0 && overall >= 50) {
+    strengths.push("Demonstrated practical domain competency aligned with their background");
+    strengths.push("Articulated technical reasoning and problem breakdown clearly");
+    strengths.push("Maintained composure during technical evaluation");
+  } else if (validAnswers.length > 0) {
+    strengths.push("Attempted responses, but answers lacked technical depth and required detail");
+  } else {
+    strengths.push("None observed — no substantive answers were submitted");
+  }
 
-  const gaps = [
-    strikes > 0 ? `Incurred ${strikes} proctoring integrity strike(s)` : "Could dive deeper into statistical edge cases or large-scale data nuances",
-    "Opportunity to quantify business metrics and performance gains with more granular telemetry",
-  ];
+  const gaps = [];
+  const skippedCount = turns.filter((t) => t.isSkipped || Number(t.score) === 0).length;
+  if (skippedCount > 0) {
+    gaps.push(`Skipped or gave no substantive answer to ${skippedCount} question(s)`);
+  }
+  if (strikes > 0) {
+    gaps.push(`Incurred ${strikes} proctoring integrity strike(s)`);
+  }
+  if (!hasStream) {
+    gaps.push("Missing proctoring telemetry: No camera or microphone feed was captured");
+  }
+  if (overall < 60) {
+    gaps.push("Need stronger foundation on core system architecture and trade-off analysis");
+  } else {
+    gaps.push("Could dive deeper into statistical edge cases or large-scale data nuances");
+  }
 
-  const summary = `The candidate completed ${count} interview questions. Overall evaluated score: ${overall}/100 with consistent domain performance. ${
-    strikes > 0
+  const summary = `The candidate completed ${validAnswers.length} of ${count} interview questions. Overall evaluated score: ${overall}/100. ${
+    !hasStream
+      ? "CRITICAL: No camera or microphone feed was captured."
+      : strikes > 0
       ? `Automated proctoring noted ${strikes} strike(s).`
       : "Session integrity was cleanly verified with zero proctoring infractions."
   } Recommended status: ${recommendation.replace("_", " ").toUpperCase()}.`;
@@ -830,7 +880,11 @@ export function scoreOfflineSession({ cvText, transcript, strikes }) {
     summary,
     strengths,
     gaps,
-    integritySummary: strikes > 0 ? `${strikes} integrity strike(s) recorded.` : "Session integrity verified cleanly with no strikes.",
+    integritySummary: !hasStream
+      ? "FAILED: Zero video or audio was captured during proctoring."
+      : strikes > 0
+      ? `${strikes} integrity strike(s) recorded.`
+      : "Session integrity verified cleanly with no strikes.",
   };
 }
 

@@ -25,6 +25,11 @@ class CandidateInterviewApp {
         this.isRecognizing = false;
         this.selectedFile = null;
 
+        // Strict Hardware Enforcement State
+        this.hardwareVerified = false;
+        this.hasCamera = false;
+        this.hasMic = false;
+
         this.init();
     }
 
@@ -180,9 +185,8 @@ class CandidateInterviewApp {
             await this.testDevices();
         });
 
-        document.getElementById('consent-recording')?.addEventListener('change', (e) => {
-            const btn = document.getElementById('btn-start-interview');
-            if (btn) btn.disabled = !e.target.checked;
+        document.getElementById('consent-recording')?.addEventListener('change', () => {
+            this.updateStartButtonState();
         });
 
         document.getElementById('btn-start-interview')?.addEventListener('click', async () => {
@@ -343,31 +347,98 @@ class CandidateInterviewApp {
         const label = document.getElementById('hw-status-label');
         const video = document.getElementById('camera-test-video');
         const placeholder = document.getElementById('camera-placeholder');
+        const cameraPill = document.getElementById('camera-status-pill');
+        const micPill = document.getElementById('mic-status-pill');
+        const alertBox = document.getElementById('hw-alert-box');
 
         try {
-            if (label) label.textContent = "Connecting devices...";
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            if (label) {
+                label.textContent = "Checking devices...";
+                label.style.color = "#fbbf24";
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("MediaDevices API is not available or insecure context (HTTPS required).");
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 20 } },
+                audio: true,
+            });
             this.mediaStream = stream;
 
-            if (video) {
+            const videoTracks = stream.getVideoTracks();
+            const audioTracks = stream.getAudioTracks();
+
+            this.hasCamera = Boolean(videoTracks.length && videoTracks[0].readyState === 'live');
+            this.hasMic = Boolean(audioTracks.length && audioTracks[0].readyState === 'live');
+            this.hardwareVerified = this.hasCamera && this.hasMic;
+
+            if (video && this.hasCamera) {
                 video.srcObject = stream;
                 placeholder?.classList.add('hidden');
             }
 
-            if (label) {
-                label.textContent = "Camera & Mic Active";
-                label.style.color = "#10b981";
+            if (this.hardwareVerified) {
+                if (label) {
+                    label.textContent = "Camera & Mic Verified";
+                    label.style.color = "#10b981";
+                }
+                if (cameraPill) {
+                    cameraPill.textContent = "✅ Camera: Verified";
+                    cameraPill.className = "device-pill pill-verified";
+                }
+                if (micPill) {
+                    micPill.textContent = "✅ Mic: Verified";
+                    micPill.className = "device-pill pill-verified";
+                }
+                alertBox?.classList.add('hidden');
+                this.setupAudioVisualizer(stream, 'vu-bar');
+                this.toast("Webcam and microphone verified successfully!", "success");
+            } else {
+                throw new Error("Both camera and microphone are required for proctored interview.");
             }
-
-            this.setupAudioVisualizer(stream, 'vu-bar');
-            this.toast("Devices connected successfully!");
         } catch (err) {
-            console.error(err);
+            console.error("Hardware test failed:", err);
+            this.hardwareVerified = false;
+            this.hasCamera = false;
+            this.hasMic = false;
+
             if (label) {
-                label.textContent = "Access Denied / Not Found";
+                label.textContent = "Verification Failed";
                 label.style.color = "#ef4444";
             }
-            this.toast("Could not access camera/microphone. Please allow browser permissions.", "error");
+            if (cameraPill) {
+                cameraPill.textContent = "❌ Camera: Not Detected";
+                cameraPill.className = "device-pill pill-failed";
+            }
+            if (micPill) {
+                micPill.textContent = "❌ Mic: Not Detected";
+                micPill.className = "device-pill pill-failed";
+            }
+            alertBox?.classList.remove('hidden');
+            this.toast("Webcam & microphone are strictly required. Please connect devices to proceed.", "error");
+        } finally {
+            this.updateStartButtonState();
+        }
+    }
+
+    updateStartButtonState() {
+        const consent = document.getElementById('consent-recording')?.checked;
+        const btn = document.getElementById('btn-start-interview');
+        if (!btn) return;
+
+        if (!this.hardwareVerified) {
+            btn.disabled = true;
+            btn.classList.remove('btn-glow');
+            btn.innerHTML = `<span>🔒 Connect Camera & Mic to Enable</span>`;
+        } else if (!consent) {
+            btn.disabled = true;
+            btn.classList.remove('btn-glow');
+            btn.innerHTML = `<span>Check Consent Box to Proceed</span>`;
+        } else {
+            btn.disabled = false;
+            btn.classList.add('btn-glow');
+            btn.innerHTML = `<span>Enter Proctored Interview</span> <span class="btn-arrow">🚀</span>`;
         }
     }
 
@@ -401,6 +472,19 @@ class CandidateInterviewApp {
     }
 
     async startInterview() {
+        if (!this.hardwareVerified || !this.mediaStream) {
+            this.toast("Webcam and microphone are strictly mandatory. Cannot enter interview without working hardware.", "error");
+            document.getElementById('hw-alert-box')?.classList.remove('hidden');
+            return;
+        }
+
+        const videoTracks = this.mediaStream.getVideoTracks();
+        const audioTracks = this.mediaStream.getAudioTracks();
+        if (!videoTracks.length || !audioTracks.length) {
+            this.toast("Active camera and microphone tracks are required.", "error");
+            return;
+        }
+
         const consent = document.getElementById('consent-recording')?.checked;
         if (!consent) {
             this.toast("Please consent to the recording and proctoring rules.", "error");
@@ -408,7 +492,12 @@ class CandidateInterviewApp {
         }
 
         try {
-            const data = await this.api('/api/interview/begin', { consent: true });
+            const data = await this.api('/api/interview/begin', {
+                consent: true,
+                hasDevices: true,
+                hasCamera: true,
+                hasMic: true,
+            });
             this.transitionTo('LIVE');
             await this.requestFullscreen();
             await this.startMediaRecording();
@@ -425,15 +514,28 @@ class CandidateInterviewApp {
     async startMediaRecording() {
         try {
             if (!this.mediaStream) {
-                this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 15 } },
-                    audio: true
-                }).catch(() => navigator.mediaDevices.getUserMedia({ audio: true }));
+                throw new Error("No media stream available for proctoring");
             }
 
             const liveVideo = document.getElementById('live-candidate-video');
             if (liveVideo && this.mediaStream.getVideoTracks().length > 0) {
                 liveVideo.srcObject = this.mediaStream;
+            }
+
+            // Monitor disconnection of camera or mic during live interview
+            const videoTrack = this.mediaStream.getVideoTracks()[0];
+            const audioTrack = this.mediaStream.getAudioTracks()[0];
+            if (videoTrack) {
+                videoTrack.onended = () => {
+                    this.reportIntegrity('camera_disconnected', 'Webcam was disconnected during interview.');
+                    this.toast("CRITICAL: Camera disconnected! Please reconnect immediately.", "error");
+                };
+            }
+            if (audioTrack) {
+                audioTrack.onended = () => {
+                    this.reportIntegrity('mic_disconnected', 'Microphone was disconnected during interview.');
+                    this.toast("CRITICAL: Microphone disconnected! Please reconnect immediately.", "error");
+                };
             }
 
             // Choose mimeType supported by browser
@@ -452,7 +554,8 @@ class CandidateInterviewApp {
             this.mediaRecorder.start(3000); // chunk every 3 seconds
         } catch (err) {
             console.warn("Recording setup issue:", err);
-            this.toast("Recording started with audio only.", "info");
+            this.reportIntegrity('hardware_failure', 'Proctoring recorder failed to initialize.');
+            this.toast("Could not start proctoring video stream.", "error");
         }
     }
 
@@ -749,6 +852,11 @@ class CandidateInterviewApp {
         const target = document.getElementById(viewMap[state]);
         if (target) target.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (state === 'READY') {
+            this.updateStartButtonState();
+            setTimeout(() => this.testDevices(), 300);
+        }
     }
 
     async api(endpoint, body = {}, options = {}) {

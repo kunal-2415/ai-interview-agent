@@ -268,3 +268,40 @@ test("buildOfflinePlan starts with warm human greeting, how are you, and tell me
   assert.equal(introEval.followUp, "", "Should not aggressively interrogate candidate on self-introduction");
 });
 
+test("scoreOfflineSession gives score 0, no_hire, and zero fake strengths when all questions are skipped or empty", () => {
+  const result = scoreOfflineSession({
+    cvText: "Test Resume",
+    transcript: [
+      { isSkipped: true, score: 0, answer: "move on" },
+      { isSkipped: true, score: 0, answer: "skip" },
+      { isSkipped: true, score: 0, answer: "" },
+    ],
+    strikes: 0,
+    recordingBytes: 10000,
+  });
+
+  assert.equal(result.overall, 0);
+  assert.equal(result.recommendation, "no_hire");
+  assert.equal(result.correctness, 0);
+  assert.equal(result.depth, 0);
+  assert.ok(result.summary.includes("NO HIRE"));
+  assert.ok(result.strengths[0].includes("No technical competency demonstrated"));
+  assert.ok(!result.strengths.join(" ").includes("practical domain competency"));
+  assert.ok(!result.strengths.join(" ").includes("technical reasoning and problem breakdown"));
+});
+
+test("scoreOfflineSession zeroes integrity and flags proctoring failure when no recording bytes exist", () => {
+  const result = scoreOfflineSession({
+    cvText: "Test Resume",
+    transcript: [
+      { isSkipped: false, score: 8, answer: "This is a solid answer with architecture and distributed locking mechanism." }
+    ],
+    strikes: 0,
+    recordingBytes: 0, // NO CAMERA OR MIC RECORDED
+  });
+
+  assert.equal(result.integrity, 0);
+  assert.ok(result.integritySummary.includes("FAILED"));
+  assert.ok(result.gaps.some(g => g.includes("No camera or microphone")));
+});
+
