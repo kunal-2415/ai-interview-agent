@@ -278,6 +278,20 @@
                                 </div>
                             </div>
 
+                            <div class="input-group">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                    <label for="inv-base-url" style="margin-bottom: 0; font-size: 0.85rem; color: #38bdf8;">🌐 Public Base URL (दूर शहर में बैठे कैंडिडेट के लिए)</label>
+                                    <span id="base-url-status-tag" style="font-size: 0.7rem; color: #22c55e; background: rgba(34, 197, 94, 0.15); padding: 2px 8px; border-radius: 99px;">Cloud/Tunnel Active</span>
+                                </div>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">🌍</span>
+                                    <input type="text" id="inv-base-url" placeholder="https://troops-katrina-brooklyn-operating.trycloudflare.com">
+                                </div>
+                                <small style="color: #94a3b8; font-size: 0.76rem; display: block; margin-top: 4px; line-height: 1.4;">
+                                    💡 <strong>नोट:</strong> अगर आप अपने लैपटॉप पर <code>localhost</code> से एडमिन चला रहे हैं, तो कैंडिडेट को <strong>Public Link (Cloudflare / Render)</strong> ही भेजें। अगर लिंक में <code>localhost</code> रहेगा तो वह सिर्फ आपके कंप्यूटर पर चलेगा, किसी और के फ़ोन पर नहीं खुलेगा!
+                                </small>
+                            </div>
+
                             <button type="submit" class="btn-primary btn-glow" id="btn-submit-invite" style="margin-top: 0.5rem;">
                                 <span>Generate Secure Invite Link</span>
                                 <span class="btn-arrow">→</span>
@@ -286,15 +300,24 @@
 
                         <div id="new-invite-box" class="glass-card hidden" style="margin-top: 1.5rem; padding: 1.25rem; border: 1px solid rgba(56, 189, 248, 0.35); background: rgba(14, 165, 233, 0.08); border-radius: 12px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                                <span style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;">✅ Invite Link Ready</span>
+                                <span style="font-size: 0.82rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;">✅ Candidate Link Generated</span>
                                 <span id="new-invite-expiry-badge" style="font-size: 0.75rem; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 8px; border-radius: 99px;">24h Validity</span>
                             </div>
-                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
-                                <input type="text" id="new-invite-url" readonly style="flex: 1; background: #070b14; color: #38bdf8; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8rem; font-family: var(--font-mono);">
-                                <button type="button" class="btn-primary btn-sm" id="btn-copy-new-invite" style="white-space: nowrap;">📋 Copy</button>
+
+                            <!-- Public Remote Link -->
+                            <div style="margin-bottom: 0.85rem;">
+                                <label style="font-size: 0.76rem; color: #38bdf8; font-weight: 600; display: block; margin-bottom: 4px;">
+                                    🌐 Remote Candidate Link (किसी भी शहर/फ़ोन से देने के लिए):
+                                </label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="new-invite-url" readonly style="flex: 1; background: #070b14; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8rem; font-family: var(--font-mono);">
+                                    <button type="button" class="btn-primary btn-sm" id="btn-copy-new-invite" style="white-space: nowrap;">📋 Copy Link</button>
+                                </div>
                             </div>
+
+                            <!-- WhatsApp share button -->
                             <div style="display: flex; gap: 0.5rem;">
-                                <a id="btn-whatsapp-new-invite" target="_blank" class="btn-secondary btn-sm" style="flex: 1; text-align: center; text-decoration: none; color: #22c55e; border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1);">
+                                <a id="btn-whatsapp-new-invite" target="_blank" class="btn-secondary btn-sm" style="flex: 1; text-align: center; text-decoration: none; color: #22c55e; border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1); font-weight: 600;">
                                     💬 Share on WhatsApp
                                 </a>
                             </div>

@@ -637,6 +637,33 @@
         }
     }
 
+    function getPublicOrigin() {
+        const input = document.getElementById('inv-base-url');
+        const custom = input ? input.value.trim().replace(/\/+$/, '') : '';
+        if (custom) {
+            localStorage.setItem('admin_public_base_url', custom);
+            return custom;
+        }
+
+        const saved = localStorage.getItem('admin_public_base_url');
+        if (saved) {
+            if (input) input.value = saved;
+            return saved;
+        }
+
+        // Default: if accessed from cloudflared tunnel or render or custom domain
+        if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+            const current = window.location.origin;
+            if (input) input.value = current;
+            return current;
+        }
+
+        // If on localhost, default to the active cloudflare tunnel URL
+        const defaultTunnel = "https://troops-katrina-brooklyn-operating.trycloudflare.com";
+        if (input) input.value = defaultTunnel;
+        return defaultTunnel;
+    }
+
     function renderInvitesTable(invites) {
         const tbody = document.getElementById('invites-table-body');
         if (!tbody) return;
@@ -646,8 +673,9 @@
             return;
         }
 
+        const origin = getPublicOrigin();
+
         tbody.innerHTML = invites.map(inv => {
-            const origin = window.location.origin;
             const fullUrl = `${origin}/?invite=${encodeURIComponent(inv.token)}`;
 
             let statusBadge = '';
@@ -742,7 +770,7 @@
             nameInput.value = '';
             emailInput.value = '';
 
-            const origin = window.location.origin;
+            const origin = getPublicOrigin();
             const fullUrl = `${origin}/?invite=${encodeURIComponent(res.invite.token)}`;
 
             const resultBox = document.getElementById('new-invite-box');
@@ -848,6 +876,17 @@
             const url = document.getElementById('new-invite-url')?.value;
             if (url) copyToClipboard(url, document.getElementById('btn-copy-new-invite'));
         });
+
+        // Public Base URL input change
+        const baseUrlInput = document.getElementById('inv-base-url');
+        if (baseUrlInput) {
+            getPublicOrigin();
+            baseUrlInput.addEventListener('input', () => {
+                const val = baseUrlInput.value.trim().replace(/\/+$/, '');
+                if (val) localStorage.setItem('admin_public_base_url', val);
+                renderInvitesTable(allInvites);
+            });
+        }
 
         // Filter pills & Search
         document.querySelectorAll('.filter-pills .filter-pill').forEach(pill => {

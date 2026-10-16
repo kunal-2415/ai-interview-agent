@@ -356,13 +356,15 @@ export function normalizeScore(raw) {
 
 export function isMoveOnOrSkipIntent(text) {
   const clean = String(text || "").toLowerCase().trim();
-  if (!clean) return true;
+  if (!clean || clean.length < 2) return true;
   const patterns = [
     /\b(move on|next question|skip|pass|skip this|next please|skip it|move to next)\b/i,
-    /\b(i don'?t know|no idea|don'?t know the answer|not sure about this|no answer)\b/i,
+    /\b(i don'?t? (know|konw)|no idea|don'?t? (know|konw) the answer|not sure about this|no answer)\b/i,
     /\b(let'?s go to the next|can we move|proceed to next|let'?s move ahead)\b/i,
     /\b(i haven'?t worked with|no experience with this|can we skip)\b/i,
-    /\b(pass this|move ahead|next topic|go to next)\b/i,
+    /\b(pass this|move ahead|next topic|go to next|don'?t ask|pls don'?t ask|please don'?t ask)\b/i,
+    /\b(na|n\/a|not applicable|nothing|none|no|kuch nahi|nahi pata|pata nahi|aap hi bata|kya kar sakte|kon na)\b/i,
+    /^(https?:\/\/|www\.)/i,
   ];
   return patterns.some((p) => p.test(clean));
 }
@@ -733,20 +735,27 @@ export function assessOfflineAnswer({ question, followUps, answer, answerMs }) {
     if (lower.includes(kw)) matches++;
   }
 
-  let answerScore = 5;
-  let coverage = "partial";
+  let answerScore = 0;
+  let coverage = "shallow";
   let followUp = "";
   let note = "";
 
-  if (words < 8) {
-    answerScore = 3;
+  if (matches === 0) {
+    if (words < 15) {
+      answerScore = 0;
+      coverage = "shallow";
+      note = "No technical mechanism or substantive domain answer provided.";
+      followUp = question.followUpIfShallow || "Could you share the specific technical approach or mechanism you would use?";
+    } else {
+      answerScore = 2;
+      coverage = "shallow";
+      note = "General response without concrete technical terminology or trade-offs.";
+      followUp = question.followUpIfShallow || "Could you elaborate on the underlying architectural trade-offs?";
+    }
+  } else if (matches === 1 && words < 12) {
+    answerScore = 3.5;
     coverage = "shallow";
-    note = "Brief response without concrete technical explanation.";
-    followUp = question.followUpIfShallow || "Could you share a bit more detail about the specific implementation or mechanism?";
-  } else if (words < 20 && matches < 2) {
-    answerScore = 4.5;
-    coverage = "shallow";
-    note = "High-level answer with limited technical details.";
+    note = "Brief mention of concept without depth or implementation details.";
     followUp = question.followUpIfShallow || "What specific constraints or tradeoffs did you consider in that scenario?";
   } else if (matches >= 3 && words >= 30) {
     answerScore = Math.min(10, 7.5 + (matches >= 5 ? 1.5 : 0.8) + (words > 60 ? 0.7 : 0));
@@ -756,7 +765,7 @@ export function assessOfflineAnswer({ question, followUps, answer, answerMs }) {
       followUp = question.followUpIfShallow || "How did you verify this in production or confirm metric accuracy?";
     }
   } else {
-    answerScore = Math.min(7.5, 5 + matches * 0.5 + (words > 25 ? 1 : 0));
+    answerScore = Math.min(7.5, 4.5 + matches * 0.7 + (words > 25 ? 0.8 : 0));
     coverage = "partial";
     note = "Reasonable understanding demonstrated; some specific mechanics could be deeper.";
     if (followUps < 1) {
@@ -778,7 +787,7 @@ export function scoreOfflineSession({ cvText, transcript, strikes, recordingByte
   const count = turns.length;
 
   const validAnswers = turns.filter(
-    (t) => !t.isSkipped && !isMoveOnOrSkipIntent(t.answer) && Number(t.score) > 0 && String(t.answer || "").trim().split(/\s+/).length >= 5
+    (t) => !t.isSkipped && !isMoveOnOrSkipIntent(t.answer) && Number(t.score) >= 3.5 && String(t.answer || "").trim().split(/\s+/).length >= 8
   );
 
   const hasStream = recordingBytes > 0;
@@ -794,15 +803,15 @@ export function scoreOfflineSession({ cvText, transcript, strikes, recordingByte
       communication: 0,
       cvHonesty: 0,
       integrity: hasStream ? Math.max(0, 10 - (strikes || 0) * 3) : 0,
-      summary: `The candidate completed 0 out of ${count} interview questions. All questions were skipped or unattempted. Recommended status: NO HIRE (INCOMPLETE).`,
-      strengths: ["No technical competency demonstrated (all evaluation questions were skipped or unattempted)."],
+      summary: `The candidate completed 0 out of ${count} interview questions with substantive technical answers. No technical knowledge was demonstrated. Recommended status: NO HIRE.`,
+      strengths: ["No technical competency demonstrated (zero valid answers submitted)."],
       gaps: [
-        "Candidate skipped or was unable to answer evaluation questions.",
+        "Candidate skipped or provided non-substantive responses to technical questions.",
         "Zero demonstrated domain competency across assessed topics.",
-        hasStream ? "No verbal or written responses provided." : "CRITICAL: No camera or microphone video stream was recorded."
+        hasStream ? "No verbal technical responses provided." : "CRITICAL: No camera or microphone video stream was recorded."
       ],
       integritySummary: hasStream
-        ? (strikes > 0 ? `${strikes} integrity strike(s) recorded.` : "Zero valid responses submitted.")
+        ? (strikes > 0 ? `${strikes} integrity strike(s) recorded.` : "Session integrity verified.")
         : "PROCTORING FAILED: No webcam or microphone video feed was recorded.",
     };
   }
