@@ -129,3 +129,24 @@ To upload candidate videos and evaluation reports directly into your Google Driv
    npm run drive-login
    ```
 4. Follow the browser authorization prompt.
+
+---
+
+## 🌐 1-Click Free Cloud Deployment (Render.com)
+
+This repository includes `render.yaml` and `Dockerfile` pre-configured for free permanent deployment:
+
+1. **Push to GitHub**:
+   - Create a repository on GitHub (e.g., `ai-interview-agent`).
+   - Push your code to GitHub:
+     ```bash
+     git remote add origin https://github.com/YOUR_USERNAME/ai-interview-agent.git
+     git push -u origin main
+     ```
+2. **Deploy on Render**:
+   - Go to [dashboard.render.com](https://dashboard.render.com/) and click **New +** -> **Web Service** (or **Blueprint**).
+   - Connect your GitHub repository.
+   - Render automatically detects `render.yaml` and deploys your service.
+3. **Share Link**:
+   - You will get a permanent, secure link: `https://your-app-name.onrender.com`.
+   - Never blocked by corporate firewalls. Candidates and admins can open it 24/7!
