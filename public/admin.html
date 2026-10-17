@@ -280,15 +280,15 @@
 
                             <div class="input-group">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                                    <label for="inv-base-url" style="margin-bottom: 0; font-size: 0.85rem; color: #38bdf8;">🌐 Public Base URL (दूर शहर में बैठे कैंडिडेट के लिए)</label>
-                                    <span id="base-url-status-tag" style="font-size: 0.7rem; color: #22c55e; background: rgba(34, 197, 94, 0.15); padding: 2px 8px; border-radius: 99px;">Cloud/Tunnel Active</span>
+                                    <label for="inv-base-url" style="margin-bottom: 0; font-size: 0.85rem; color: #38bdf8;">🌐 Public Base URL (दूर शहर / 24h इंटरव्यू के लिए)</label>
+                                    <span id="base-url-status-tag" style="font-size: 0.7rem; color: #22c55e; background: rgba(34, 197, 94, 0.15); padding: 2px 8px; border-radius: 99px;">Configured</span>
                                 </div>
                                 <div class="input-wrapper">
                                     <span class="input-icon">🌍</span>
-                                    <input type="text" id="inv-base-url" placeholder="https://troops-katrina-brooklyn-operating.trycloudflare.com">
+                                    <input type="text" id="inv-base-url" placeholder="https://ai-interview-agent.onrender.com">
                                 </div>
                                 <small style="color: #94a3b8; font-size: 0.76rem; display: block; margin-top: 4px; line-height: 1.4;">
-                                    💡 <strong>नोट:</strong> अगर आप अपने लैपटॉप पर <code>localhost</code> से एडमिन चला रहे हैं, तो कैंडिडेट को <strong>Public Link (Cloudflare / Render)</strong> ही भेजें। अगर लिंक में <code>localhost</code> रहेगा तो वह सिर्फ आपके कंप्यूटर पर चलेगा, किसी और के फ़ोन पर नहीं खुलेगा!
+                                    💡 <strong>24/7 एक्टिविटी नोट:</strong> अगर रात में आपका लैपटॉप बंद या हाइबरनेट रहेगा, तो यहाँ अपना <strong>Render.com वाला लिंक</strong> डालें (जैसे <code>https://ai-interview-agent-xxxx.onrender.com</code>)। इससे लिंक 24 घंटे बिना रुके काम करेगा।
                                 </small>
                             </div>
 
@@ -389,6 +389,12 @@
                             <label for="focusNotes">Hiring Manager Focus Notes (Instructions for AI Interviewer)</label>
                             <textarea id="focusNotes" name="focusNotes" rows="5" placeholder="Probe real project decisions, tradeoffs, production failures, system architecture, and fundamentals. Reject buzzwords."></textarea>
                             <small class="helper-text">These instructions guide how strictly the AI probes trade-offs and generates follow-up questions.</small>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="publicBaseUrl">🌐 24/7 Public Domain URL (Render.com / Custom Domain)</label>
+                            <input type="text" id="publicBaseUrl" name="publicBaseUrl" placeholder="https://ai-interview-agent.onrender.com">
+                            <small class="helper-text">Put your Render app link here (e.g. <code>https://ai-interview-agent-xxxx.onrender.com</code>). All generated candidate invite links will use this domain, so candidates can take interviews 24/7 even after your laptop is turned off or in hibernate mode.</small>
                         </div>
 
                         <div class="form-actions">

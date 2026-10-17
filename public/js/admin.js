@@ -582,6 +582,14 @@
             setInputValue('questionCount', s.questionCount);
             setInputValue('language', s.language);
             setInputValue('focusNotes', s.focusNotes);
+            setInputValue('publicBaseUrl', s.publicBaseUrl || '');
+
+            if (s.publicBaseUrl) {
+                const invBase = document.getElementById('inv-base-url');
+                if (invBase && (!invBase.value || invBase.value.includes('troops-katrina-brooklyn-operating'))) {
+                    invBase.value = s.publicBaseUrl;
+                }
+            }
         } catch (err) {
             console.error("Failed to load settings:", err);
         }
@@ -600,13 +608,20 @@
                 btn.innerHTML = `<span>Saving...</span> <span class="spinner-small"></span>`;
             }
 
-            await api('/settings', {
+            const res = await api('/settings', {
                 method: 'PUT',
                 body: settings
             });
 
+            if (res.settings?.publicBaseUrl) {
+                localStorage.setItem('admin_public_base_url', res.settings.publicBaseUrl);
+                const invBase = document.getElementById('inv-base-url');
+                if (invBase) invBase.value = res.settings.publicBaseUrl;
+            }
+
             toast("Settings updated and applied to future interviews!", "success");
             await loadSystemStatus();
+            renderInvitesTable(allInvites);
         } catch (err) {
             toast("Failed to save settings: " + err.message, "error");
         } finally {
@@ -638,30 +653,36 @@
     }
 
     function getPublicOrigin() {
+        const deadTunnel = "troops-katrina-brooklyn-operating.trycloudflare.com";
+        const saved = localStorage.getItem('admin_public_base_url');
+        if (saved && saved.includes(deadTunnel)) {
+            localStorage.removeItem('admin_public_base_url');
+        }
+
         const input = document.getElementById('inv-base-url');
         const custom = input ? input.value.trim().replace(/\/+$/, '') : '';
-        if (custom) {
+        if (custom && !custom.includes(deadTunnel)) {
             localStorage.setItem('admin_public_base_url', custom);
             return custom;
         }
 
-        const saved = localStorage.getItem('admin_public_base_url');
-        if (saved) {
-            if (input) input.value = saved;
-            return saved;
+        const validSaved = localStorage.getItem('admin_public_base_url');
+        if (validSaved && !validSaved.includes(deadTunnel)) {
+            if (input) input.value = validSaved;
+            return validSaved;
         }
 
-        // Default: if accessed from cloudflared tunnel or render or custom domain
+        // If accessed from Render or live web host (not localhost)
         if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
             const current = window.location.origin;
             if (input) input.value = current;
             return current;
         }
 
-        // If on localhost, default to the active cloudflare tunnel URL
-        const defaultTunnel = "https://troops-katrina-brooklyn-operating.trycloudflare.com";
-        if (input) input.value = defaultTunnel;
-        return defaultTunnel;
+        // Active Cloudflare tunnel fallback for local testing
+        const activeTunnel = "https://burlington-carpet-raises-designers.trycloudflare.com";
+        if (input && (!input.value || input.value.includes(deadTunnel))) input.value = activeTunnel;
+        return activeTunnel;
     }
 
     function renderInvitesTable(invites) {

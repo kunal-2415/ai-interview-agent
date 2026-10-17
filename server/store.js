@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   language: "English",
   focusNotes:
     "Probe real project decisions, tradeoffs, failures, and fundamentals. Do not accept buzzwords without a mechanism.",
+  publicBaseUrl: "",
 };
 
 export function createStore(dataDir, seed = {}) {
@@ -177,6 +178,7 @@ export function normalizeSettings(input) {
     questionCount,
     language: clip(input.language, 40) || DEFAULT_SETTINGS.language,
     focusNotes: clip(input.focusNotes, 2000) || DEFAULT_SETTINGS.focusNotes,
+    publicBaseUrl: clip(input.publicBaseUrl, 255) || DEFAULT_SETTINGS.publicBaseUrl,
   };
 }
 
